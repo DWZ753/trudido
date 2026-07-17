@@ -1,0 +1,239 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+
+/// New native notification bridge.
+/// All scheduling and display logic lives in Android (Kotlin).
+/// This Dart class only:
+///  * Exposes a method channel API to request schedule/cancel
+///  * Listens for background action callbacks (taskCompleted / taskSnoozed)
+///  * Pulls any pending native updates persisted while Flutter was dead
+///  * Forwards events to app-layer listeners so UI/state can update
+class NotificationBridge {
+  static const MethodChannel _channel = MethodChannel(
+    'com.trudido.app/notifications',
+  );
+
+  static final NotificationBridge instance = NotificationBridge._();
+  NotificationBridge._();
+
+  final StreamController<NotificationAction> _actionController =
+      StreamController.broadcast();
+  Stream<NotificationAction> get actions => _actionController.stream;
+
+  bool _initialized = false;
+  bool _channelProven = false; // set true once a call succeeds
+  int _probeAttempts = 0;
+  bool _probeScheduled = false;
+
+  Future<void> initialize({
+    Future<void> Function()? syncPendingNativeUpdates,
+  }) async {
+    if (_initialized) return;
+    _initialized = true;
+
+    _channel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'notificationAction':
+          final data = Map<dynamic, dynamic>.from(call.arguments as Map);
+          _handleIncomingAction(data);
+          break;
+        case 'notificationTapped':
+          final data = Map<dynamic, dynamic>.from(call.arguments as Map);
+          final taskId = data['taskId'] as String?;
+          if (taskId != null) {
+            debugPrint(
+              '[NotificationBridge] Notification tapped for task: $taskId',
+            );
+            _actionController.add(
+              NotificationAction(type: 'notificationTapped', taskId: taskId),
+            );
+          }
+          break;
+        default:
+          if (kDebugMode) {
+            debugPrint(
+              '[NotificationBridge] Unknown method from native: ${call.method}',
+            );
+          }
+      }
+    });
+
+    // On startup, optionally sync any pending native updates
+    if (syncPendingNativeUpdates != null) {
+      await syncPendingNativeUpdates();
+    } else {
+      await _trySingleProbePull();
+      _scheduleProbeRetry();
+    }
+  }
+
+  /// Ask native side to schedule a notification.
+  Future<bool> scheduleTaskNotification({
+    required String taskId,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    String? uniqueKey,
+    bool persistent = false,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod('scheduleNotification', {
+        'taskId': taskId,
+        'title': title,
+        'body': body,
+        'triggerTime': scheduledTime.millisecondsSinceEpoch,
+        if (uniqueKey != null) 'uniqueKey': uniqueKey,
+        'persistent': persistent,
+      });
+      return result == true;
+    } catch (e) {
+      debugPrint('[NotificationBridge] schedule error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelTaskNotification(String taskId) async {
+    try {
+      final result = await _channel.invokeMethod(
+        'cancelScheduledNotification',
+        {'taskId': taskId},
+      );
+      return result == true;
+    } catch (e) {
+      debugPrint('[NotificationBridge] cancel error: $e');
+      return false;
+    }
+  }
+
+  /// Sync the persistent notifications preference to the native side.
+  Future<void> setPersistentNotifications(bool enabled) async {
+    try {
+      await _channel.invokeMethod('setPersistentNotifications', {
+        'enabled': enabled,
+      });
+    } catch (e) {
+      debugPrint('[NotificationBridge] setPersistentNotifications error: $e');
+    }
+  }
+
+  /// Fetch any actions that occurred while Flutter was terminated.
+  Future<void> pullPendingNativeActions() async {
+    if (!_channelProven) {
+      // If channel hasn't been proven yet, do a probe instead to avoid noisy exceptions.
+      await _trySingleProbePull();
+      return;
+    }
+    try {
+      final list = await _channel.invokeMethod('getPendingActions');
+      if (kDebugMode) {
+        debugPrint(
+          '[NotificationBridge] pulled pending list=${list is List ? list.length : 'non-list'}',
+        );
+      }
+      if (list is List) {
+        for (final raw in list) {
+          if (raw is Map) {
+            if (kDebugMode) {
+              debugPrint('[NotificationBridge] applying pending raw=$raw');
+            }
+            _handleIncomingAction(Map<String, dynamic>.from(raw));
+          }
+        }
+      }
+      await _channel.invokeMethod('clearPendingActions');
+    } catch (e) {
+      debugPrint('[NotificationBridge] pull pending error: $e');
+    }
+  }
+
+  Future<void> _trySingleProbePull() async {
+    try {
+      final list = await _channel.invokeMethod('getPendingActions');
+      _channelProven = true;
+      if (kDebugMode) {
+        debugPrint(
+          '[NotificationBridge] probe success; list type=${list.runtimeType}',
+        );
+      }
+      if (list is List) {
+        for (final raw in list) {
+          if (raw is Map) _handleIncomingAction(Map<String, dynamic>.from(raw));
+        }
+      }
+      await _channel.invokeMethod('clearPendingActions');
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[NotificationBridge] probe failed (will retry later, suppressed): $e',
+        );
+      }
+    }
+  }
+
+  void _scheduleProbeRetry() {
+    if (_channelProven) return;
+    if (_probeScheduled) return;
+    if (_probeAttempts >= 6) {
+      return; // stop after max attempts (~backoff total < ~5s)
+    }
+    _probeScheduled = true;
+    final attempt = ++_probeAttempts;
+    // Exponential backoff: 100ms * 2^(attempt-1), capped at 1600ms
+    final delayMs = (100 * (1 << (attempt - 1))).clamp(100, 1600);
+    Future.delayed(Duration(milliseconds: delayMs), () async {
+      _probeScheduled = false;
+      if (_channelProven) return;
+      await _trySingleProbePull();
+      _scheduleProbeRetry();
+    });
+  }
+
+  void _handleIncomingAction(Map data) {
+    final type = data['type'] as String?;
+    final taskId = data['taskId'] as String?;
+    if (type == null || taskId == null) return;
+    final action = NotificationAction(
+      type: type,
+      taskId: taskId,
+      newScheduledTime: data['newTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['newTime'] as int)
+          : null,
+    );
+    _actionController.add(action);
+  }
+
+  void dispose() {
+    _actionController.close();
+  }
+}
+
+class NotificationAction {
+  final String type; // 'taskCompleted' | 'taskSnoozed'
+  final String taskId;
+  final DateTime? newScheduledTime; // only for snooze
+  NotificationAction({
+    required this.type,
+    required this.taskId,
+    this.newScheduledTime,
+  });
+  @override
+  String toString() =>
+      'NotificationAction(type=$type, taskId=$taskId, newScheduledTime=$newScheduledTime)';
+}

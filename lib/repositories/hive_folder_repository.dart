@@ -1,0 +1,284 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/folder.dart';
+import '../repositories/folder_repository.dart';
+import '../services/storage_service.dart';
+
+/// Concrete implementation of FolderRepository using Hive for local storage
+class HiveFolderRepository implements FolderRepository {
+  static const String _foldersBoxName = 'folders';
+  static const String _deletedDefaultFolderNamesKey =
+      'deleted_default_folder_names';
+  Box<Folder>? _foldersBox;
+
+  /// Returns the set of default-folder names the user has intentionally deleted
+  /// or renamed, so they are not auto-recreated on next app start.
+  Future<Set<String>> _getDeletedDefaultFolderNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_deletedDefaultFolderNamesKey) ?? []).toSet();
+  }
+
+  /// Persists [name] so that [_createDefaultFoldersIfNeeded] skips it.
+  Future<void> _markDefaultFolderAsDeleted(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = (prefs.getStringList(_deletedDefaultFolderNamesKey) ?? [])
+        .toSet();
+    existing.add(name.toLowerCase());
+    await prefs.setStringList(_deletedDefaultFolderNamesKey, existing.toList());
+  }
+
+  /// Initialize the repository with Hive boxes
+  Future<void> init() async {
+    _foldersBox = await Hive.openBox<Folder>(_foldersBoxName);
+    // Create default folders if none exist
+    await _createDefaultFoldersIfNeeded();
+  }
+
+  @override
+  Future<List<Folder>> getAllFolders() async {
+    if (_foldersBox == null) await init();
+    return _foldersBox!.values.toList();
+  }
+
+  @override
+  Future<Folder?> getFolderById(String id) async {
+    if (_foldersBox == null) await init();
+    return _foldersBox!.get(id);
+  }
+
+  @override
+  Future<void> createFolder(Folder folder) async {
+    if (_foldersBox == null) await init();
+    await _foldersBox!.put(folder.id, folder);
+  }
+
+  @override
+  Future<void> updateFolder(Folder folder) async {
+    if (_foldersBox == null) await init();
+    // If a default folder is being renamed, mark the old name so it won't
+    // be auto-recreated on the next app start.
+    final existing = _foldersBox!.get(folder.id);
+    if (existing != null &&
+        existing.isDefault &&
+        existing.name.toLowerCase() != folder.name.trim().toLowerCase()) {
+      await _markDefaultFolderAsDeleted(existing.name);
+    }
+    final updatedFolder = folder.copyWith(updatedAt: DateTime.now());
+    await _foldersBox!.put(folder.id, updatedFolder);
+  }
+
+  @override
+  Future<void> deleteFolder(String id) async {
+    if (_foldersBox == null) await init();
+    // If deleting a default folder, remember its name so it won't be
+    // auto-recreated the next time the app starts.
+    final folder = _foldersBox!.get(id);
+    if (folder != null && folder.isDefault) {
+      await _markDefaultFolderAsDeleted(folder.name);
+    }
+    // Ensure todos storage ready
+    await StorageService.waitTodosReady();
+    final todos = await StorageService.getAllTodosAsync();
+    final affected = todos.where((t) => t.folderId == id).toList();
+    if (affected.isNotEmpty) {
+      final defaultFolder = await _getDefaultFolder();
+      for (final todo in affected) {
+        final updatedTodo = todo.copyWith(folderId: defaultFolder?.id);
+        await StorageService.updateTodo(updatedTodo);
+      }
+    }
+    await _foldersBox!.delete(id);
+  }
+
+  @override
+  Future<List<Folder>> getFoldersSorted() async {
+    final folders = await getAllFolders();
+    // Deduplicate by name (case-insensitive) keeping earliest createdAt and marking others for removal.
+    final seen = <String, Folder>{};
+    final dups = <Folder>[];
+    for (final f in folders) {
+      final key = f.name.toLowerCase();
+      if (!seen.containsKey(key)) {
+        seen[key] = f;
+      } else {
+        // Keep the one that is default or earliest created
+        final keep = _pickFolderToKeep(seen[key]!, f);
+        final drop = keep == seen[key]! ? f : seen[key]!;
+        seen[key] = keep;
+        if (!dups.contains(drop)) dups.add(drop);
+      }
+    }
+    if (dups.isNotEmpty) {
+      for (final d in dups) {
+        await _foldersBox!.delete(d.id);
+      }
+      folders.removeWhere((f) => dups.any((d) => d.id == f.id));
+    }
+    folders.sort((a, b) {
+      // Default folders first, then by sort order, then by name
+      if (a.isDefault && !b.isDefault) return -1;
+      if (!a.isDefault && b.isDefault) return 1;
+
+      final sortOrderComparison = a.sortOrder.compareTo(b.sortOrder);
+      if (sortOrderComparison != 0) return sortOrderComparison;
+
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return folders;
+  }
+
+  @override
+  Future<void> updateFolderOrder(List<String> folderIds) async {
+    if (_foldersBox == null) await init();
+
+    for (int i = 0; i < folderIds.length; i++) {
+      final folder = await getFolderById(folderIds[i]);
+      if (folder != null) {
+        final updatedFolder = folder.copyWith(
+          sortOrder: i,
+          updatedAt: DateTime.now(),
+        );
+        await _foldersBox!.put(folder.id, updatedFolder);
+      }
+    }
+  }
+
+  @override
+  Future<List<Folder>> getDefaultFolders() async {
+    final folders = await getAllFolders();
+    return folders.where((folder) => folder.isDefault).toList();
+  }
+
+  @override
+  Future<bool> folderNameExists(String name, {String? excludeId}) async {
+    final folders = await getAllFolders();
+    return folders.any(
+      (folder) =>
+          folder.name.toLowerCase() == name.toLowerCase() &&
+          folder.id != excludeId,
+    );
+  }
+
+  @override
+  Future<Map<String, int>> getFolderTaskCounts() async {
+    await StorageService.waitTodosReady();
+    final todos = await StorageService.getAllTodosAsync();
+    final folderCounts = <String, int>{};
+    final folders = await getAllFolders();
+    for (final folder in folders) {
+      folderCounts[folder.id] = 0;
+    }
+    for (final todo in todos) {
+      final fid = todo.folderId;
+      if (fid != null) folderCounts[fid] = (folderCounts[fid] ?? 0) + 1;
+    }
+    return folderCounts;
+  }
+
+  @override
+  Future<List<Folder>> searchFolders(String query) async {
+    final folders = await getAllFolders();
+    final lowercaseQuery = query.toLowerCase();
+
+    return folders.where((folder) {
+      final nameMatch = folder.name.toLowerCase().contains(lowercaseQuery);
+      final descriptionMatch =
+          folder.description?.toLowerCase().contains(lowercaseQuery) ?? false;
+      return nameMatch || descriptionMatch;
+    }).toList();
+  }
+
+  /// Helper method to get todos in a specific folder
+  // Removed direct todos box usage; rely on StorageService's lazy box.
+
+  /// Helper method to get the default folder
+  Future<Folder?> _getDefaultFolder() async {
+    final defaultFolders = await getDefaultFolders();
+    return defaultFolders.isNotEmpty ? defaultFolders.first : null;
+  }
+
+  /// Create default folders if none exist
+  Future<void> _createDefaultFoldersIfNeeded() async {
+    final deletedNames = await _getDeletedDefaultFolderNames();
+    final existing = _foldersBox!.values.toList();
+    final existingNames = existing.map((f) => f.name.toLowerCase()).toSet();
+    Future<void> ensure(
+      String name,
+      String desc,
+      int color,
+      String icon,
+      int order,
+    ) async {
+      // Skip folders the user has deliberately deleted or renamed.
+      if (deletedNames.contains(name.toLowerCase())) return;
+      if (existingNames.contains(name.toLowerCase())) return;
+      // Recheck after potential race
+      final latestNames = _foldersBox!.values
+          .map((f) => f.name.toLowerCase())
+          .toSet();
+      if (latestNames.contains(name.toLowerCase())) return;
+      await createFolder(
+        Folder(
+          name: name,
+          description: desc,
+          color: color,
+          icon: icon,
+          isDefault: true,
+          sortOrder: order,
+        ),
+      );
+    }
+
+    await ensure(
+      '个人',
+      '个人任务和提醒',
+      0xFF2196F3,
+      'person',
+      0,
+    );
+    await ensure(
+      '工作',
+      '工作相关的任务和项目',
+      0xFF4CAF50,
+      'work',
+      1,
+    );
+    await ensure(
+      '购物',
+      '购物清单和采购',
+      0xFFFF9800,
+      'shopping_cart',
+      2,
+    );
+  }
+
+  Folder _pickFolderToKeep(Folder a, Folder b) {
+    // Prefer default, then earlier createdAt, then lower id lexicographically
+    if (a.isDefault != b.isDefault) return a.isDefault ? a : b;
+    if (a.createdAt != b.createdAt) {
+      return a.createdAt.isBefore(b.createdAt) ? a : b;
+    }
+    return a.id.compareTo(b.id) <= 0 ? a : b;
+  }
+
+  /// Clean up resources
+  Future<void> dispose() async {
+    await _foldersBox?.close();
+  }
+}

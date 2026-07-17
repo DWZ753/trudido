@@ -1,0 +1,372 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:intl/intl.dart';
+
+import '../screens/task_editor_screen.dart';
+import '../utils/animated_navigation.dart';
+import '../models/todo.dart';
+import '../services/theme_service.dart';
+import '../utils/mention_navigator.dart';
+import '../widgets/mention_text.dart';
+import '../widgets/common/common.dart';
+
+class TodoItem extends ConsumerWidget {
+  final Todo todo;
+  final VoidCallback onToggle;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final bool showDragHandle;
+  final bool selectable;
+  final bool selected;
+  final VoidCallback? onSelectToggle;
+
+  const TodoItem({
+    super.key,
+    required this.todo,
+    required this.onToggle,
+    required this.onEdit,
+    required this.onDelete,
+    this.showDragHandle = false,
+    this.selectable = false,
+    this.selected = false,
+    this.onSelectToggle,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    final selectedBg = cs.surfaceContainerHighest;
+    final selectedFg = cs.onSurface;
+    final appOpts =
+        theme.extension<AppOptions>() ??
+        const AppOptions(compact: false, highContrast: false);
+    final basePad = appOpts.compact ? 8.0 : 12.0;
+    final gap = appOpts.compact ? 6.0 : 8.0;
+    final titleSize = appOpts.compact ? 15.0 : 16.0;
+    final subtitleGap = appOpts.compact ? 2.0 : 4.0;
+    final controlPad = appOpts.compact ? 2.0 : 4.0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Slidable(
+        key: ValueKey(todo.id),
+        endActionPane: ActionPane(
+          motion: const ScrollMotion(),
+          children: [
+            SlidableAction(
+              onPressed: (_) => onEdit(),
+              backgroundColor: cs.secondaryContainer,
+              foregroundColor: cs.onSecondaryContainer,
+              icon: Icons.edit_outlined,
+              label: '编辑',
+            ),
+            SlidableAction(
+              onPressed: (_) => onDelete(),
+              backgroundColor: cs.errorContainer,
+              foregroundColor: cs.onErrorContainer,
+              icon: Icons.delete_outline,
+              label: '删除',
+            ),
+          ],
+        ),
+        child: Semantics(
+          container: true,
+          selected: selected,
+          label: todo.text,
+          hint: selectable
+              ? (selected
+                    ? '已选择。双击取消选择。'
+                    : '未选择。双击选择。')
+              : '双击编辑任务。长按选择。',
+          child: Card(
+            elevation: todo.isCompleted ? 0 : 1,
+            color: selected
+                ? selectedBg
+                : (theme.brightness == Brightness.dark
+                      ? cs.surfaceContainerHigh
+                      : null),
+            child: ExpressiveInkWell(
+              onTap: () {
+                if (selectable && onSelectToggle != null) {
+                  onSelectToggle!();
+                  return;
+                }
+                AnimatedNavigation.push(
+                  context,
+                  TaskEditorScreen(todo: todo, onSave: (updatedTask) {}),
+                );
+              },
+              onLongPress: () {
+                if (onSelectToggle != null) {
+                  onSelectToggle!();
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOutCubicEmphasized,
+                padding: EdgeInsets.all(basePad),
+                child: Row(
+                  children: [
+                    selectable
+                        ? ExpressiveGestureDetector(
+                            onTap: onSelectToggle,
+                            child: Container(
+                              padding: EdgeInsets.all(controlPad),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeInOutCubicEmphasized,
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: selected
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.onSurfaceVariant,
+                                    width: 2,
+                                  ),
+                                  color: selected
+                                      ? theme.colorScheme.primary
+                                      : Colors.transparent,
+                                ),
+                                child: selected
+                                    ? Icon(
+                                        Icons.check,
+                                        size: 16,
+                                        color: theme.colorScheme.onPrimary,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          )
+                        : ExpressiveGestureDetector(
+                            onTap: onToggle,
+                            child: Container(
+                              padding: EdgeInsets.all(controlPad),
+                              child: BurstCheckbox(
+                                value: todo.isCompleted,
+                                onChanged: (_) => onToggle(),
+                              ),
+                            ),
+                          ),
+                    SizedBox(width: gap),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(
+                              begin: todo.isCompleted ? 400 : 500,
+                              end: todo.isCompleted ? 400 : 500,
+                            ),
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOutCubicEmphasized,
+                            builder: (context, weight, _) => Text(
+                              todo.text,
+                              style: TextStyle(
+                                decoration: todo.isCompleted
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: selected
+                                    ? selectedFg
+                                    : (todo.isCompleted
+                                          ? theme.colorScheme.outline
+                                          : theme.colorScheme.onSurface),
+                                fontVariations: [FontVariation('wght', weight)],
+                                fontSize: titleSize,
+                                letterSpacing: appOpts.highContrast
+                                    ? 0.2
+                                    : null,
+                              ),
+                            ),
+                          ),
+                          if (_hasSubtitleContent()) ...[
+                            SizedBox(height: subtitleGap),
+                            _buildSubtitleRow(
+                              context,
+                              ref,
+                              overrideColor: selected
+                                  ? selectedFg.withAlpha(180)
+                                  : null,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (_buildTrailing(context) != null) ...[
+                      SizedBox(width: gap),
+                      _buildTrailing(context)!,
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _hasSubtitleContent() =>
+      todo.dueDate != null ||
+      todo.durationMinutes != null ||
+      (todo.notes != null && todo.notes!.isNotEmpty);
+
+  Widget _buildSubtitleRow(
+    BuildContext context,
+    WidgetRef ref, {
+    Color? overrideColor,
+  }) {
+    final parts = <Widget>[];
+    if (todo.dueDate != null) {
+      final dueDateText = DateFormat('MMM dd, yyyy').format(todo.dueDate!);
+      final isOverdue = todo.isOverdue;
+      final isDueToday = todo.isDueToday;
+      Color dateColor = overrideColor ?? Theme.of(context).colorScheme.outline;
+      if (isOverdue && !todo.isCompleted) {
+        dateColor = Theme.of(context).colorScheme.error;
+      } else if (isDueToday && !todo.isCompleted) {
+        dateColor = Theme.of(context).colorScheme.tertiary;
+      }
+      parts.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_outlined, size: 14, color: dateColor),
+            const SizedBox(width: 4),
+            Text(
+              dueDateText,
+              style: TextStyle(
+                color: dateColor,
+                fontSize: 12,
+                fontWeight: isOverdue || isDueToday ? FontWeight.w600 : null,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (todo.durationMinutes != null) {
+      final durationMinutes = todo.durationMinutes!;
+      final hours = durationMinutes ~/ 60;
+      final mins = durationMinutes % 60;
+      String durationText;
+      if (hours == 0) {
+        durationText = '${mins}分钟';
+      } else if (mins == 0) {
+        durationText = '${hours}小时';
+      } else {
+        durationText = '${hours}小时${mins}分钟';
+      }
+      final durationColor =
+          overrideColor ?? Theme.of(context).colorScheme.outline;
+      parts.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.timer_outlined, size: 14, color: durationColor),
+            const SizedBox(width: 4),
+            Text(
+              durationText,
+              style: TextStyle(color: durationColor, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+    if (todo.notes != null && todo.notes!.isNotEmpty) {
+      parts.add(
+        MentionText(
+          text: todo.notes!,
+          style: TextStyle(
+            color: overrideColor ?? Theme.of(context).colorScheme.outline,
+            fontSize: 12,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          onMentionTap: (mention) {
+            MentionNavigator.navigateToMention(context, ref, mention);
+          },
+        ),
+      );
+    }
+    return Wrap(spacing: 12, runSpacing: 4, children: parts);
+  }
+
+  Widget? _buildTrailing(BuildContext context) {
+    final priorityColor = AppTheme.getPriorityColor(
+      todo.priority,
+      Theme.of(context).colorScheme,
+    );
+    if (showDragHandle) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: priorityColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Icon(
+                AppTheme.getPriorityIcon(todo.priority),
+                size: 16,
+                color: priorityColor,
+              ),
+            ],
+          ),
+          SizedBox(
+            width: (Theme.of(context).extension<AppOptions>()?.compact ?? false)
+                ? 4
+                : 8,
+          ),
+          Icon(Icons.drag_handle, color: Theme.of(context).colorScheme.outline),
+        ],
+      );
+    }
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: priorityColor,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Icon(
+          AppTheme.getPriorityIcon(todo.priority),
+          size: 16,
+          color: priorityColor,
+        ),
+      ],
+    );
+  }
+}

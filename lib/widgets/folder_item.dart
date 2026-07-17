@@ -1,0 +1,269 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/material.dart';
+import '../models/folder.dart';
+import '../widgets/common/common.dart';
+
+class FolderItem extends StatelessWidget {
+  final Folder folder;
+  final int taskCount;
+  final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const FolderItem({
+    super.key,
+    required this.folder,
+    required this.taskCount,
+    this.onTap,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ExpressiveInkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Folder icon with color
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Color(folder.color).withAlpha(51),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Icon(
+                        _getIconData(folder.icon),
+                        color: Color(folder.color),
+                        size: 24,
+                      ),
+                    ),
+                    if (folder.isVault)
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.lock,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Folder details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            folder.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (folder.isVault) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withAlpha(51),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.lock,
+                                  size: 12,
+                                  color: Colors.amber.shade700,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '保险库',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.amber.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (folder.isDefault) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withAlpha(26),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '默认',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    if (folder.description != null &&
+                        folder.description!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        folder.description!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withAlpha(179),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+
+                    const SizedBox(height: 8),
+
+                    // Task count and actions
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.checklist,
+                          size: 16,
+                          color: theme.colorScheme.onSurface.withAlpha(153),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$taskCount个任务',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withAlpha(153),
+                          ),
+                        ),
+                        const Spacer(),
+
+                        // Action buttons
+                        if (onEdit != null) ...[
+                          ExpressiveIconButton(
+                            onPressed: onEdit,
+                            icon: Icon(Icons.edit),
+                            iconSize: 18,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            tooltip: '编辑文件夹',
+                          ),
+                        ],
+
+                        if (onDelete != null) ...[
+                          ExpressiveIconButton(
+                            onPressed: onDelete,
+                            icon: Icon(Icons.delete),
+                            iconSize: 18,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            style: ExpressiveIconButton.styleFrom(
+                              foregroundColor: theme.colorScheme.error,
+                            ),
+                            tooltip: '删除文件夹',
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Drag handle
+              const SizedBox(width: 8),
+              Icon(
+                Icons.drag_handle,
+                color: theme.colorScheme.onSurface.withAlpha(102),
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _getIconData(String? iconName) {
+    switch (iconName) {
+      case 'person':
+        return Icons.person;
+      case 'work':
+        return Icons.work;
+      case 'shopping_cart':
+        return Icons.shopping_cart;
+      case 'home':
+        return Icons.home;
+      case 'school':
+        return Icons.school;
+      case 'health':
+        return Icons.favorite;
+      case 'travel':
+        return Icons.flight;
+      case 'finance':
+        return Icons.savings;
+      case 'hobby':
+        return Icons.games;
+      case 'fitness':
+        return Icons.fitness_center;
+      default:
+        return Icons.folder;
+    }
+  }
+}

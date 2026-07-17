@@ -1,0 +1,189 @@
+Categories:
+  - Note
+  - Task
+License: GPL-3.0-or-later
+AuthorName: Dominik Müller
+AuthorWebSite: https://github.com/dominikmuellr
+SourceCode: https://github.com/dominikmuellr/trudido
+IssueTracker: https://github.com/dominikmuellr/trudido/issues
+
+Name: Trudido
+AutoName: trudido
+Summary: Privacy-focused todo and notes app
+Description: |
+  Trudido is a privacy-focused todo and notes app with rich features.
+
+  Features:
+  * Task management with categories, priorities, and due dates
+  * Rich text notes with markdown support
+  * Encrypted vault for private notes (biometric unlock)
+  * Calendar integration (DAVx5/Android Calendar sync)
+  * Audio recordings, images, and video attachments
+  * PDF export
+  * Material You dynamic theming
+  * Fully offline - no internet required
+  * No ads, no tracking
+
+RepoType: git
+Repo: https://github.com/dominikmuellr/trudido.git
+
+Builds:
+  - versionName: 1.2.6
+    versionCode: 2019
+    commit: 0469eae6b002481e622a2e172ba62923a627dbcc
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform="android-arm64"
+
+  - versionName: 1.2.7
+    versionCode: 2020
+    commit: 20af36c1e3b87ffbae91311ff2c9307c8d6586fa
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform android-arm64
+
+  - versionName: 1.3.0
+    versionCode: 2021
+    commit: v1.3.0
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform android-arm64
+
+  - versionName: 1.3.1
+    versionCode: 2022
+    commit: v1.3.1
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform android-arm64
+
+  - versionName: 1.3.2
+    versionCode: 2023
+    commit: v1.3.2
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform android-arm64
+
+  - versionName: 1.3.3
+    versionCode: 2024
+    commit: v1.3.3
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform android-arm64
+
+  - versionName: 1.3.5
+    versionCode: 2026
+    commit: v1.3.5
+    output: build/app/outputs/flutter-apk/app-fdroid-arm64-v8a-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - web
+    prebuild:
+      - export flutterVersion=$(sed -n -E 's/^\s*flutter:\s*"?([0-9.]+)"?/\1/p' pubspec.yaml)
+      - "[[ $flutterVersion ]] || exit 1"
+      - git -C $$flutter$$ checkout -f $flutterVersion
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter config --no-analytics
+      - $$flutter$$/bin/flutter pub get
+    scandelete:
+      - .pub-cache
+    build:
+      - export PUB_CACHE=$(pwd)/.pub-cache
+      - $$flutter$$/bin/flutter build apk --release --flavor fdroid --dart-define=IS_FDROID=true --split-per-abi --target-platform android-arm64
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+UpdateCheckData: pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
+CurrentVersion: 1.3.4
+CurrentVersionCode: 2025

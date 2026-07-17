@@ -1,0 +1,83 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'note.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
+
+class NoteAdapter extends TypeAdapter<Note> {
+  @override
+  final int typeId = 6;
+
+  @override
+  Note read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return Note(
+      id: fields[0] as String?,
+      title: fields[1] as String,
+      content: fields[2] as String,
+      createdAt: fields[3] as DateTime?,
+      updatedAt: fields[4] as DateTime?,
+      isPinned: fields[5] == null ? false : fields[5] as bool,
+      folderId: fields[6] as String?,
+      todoTxtContent: fields[7] as String?,
+      isDeleted: fields[8] == null ? false : fields[8] as bool,
+      lineHeightMultiplier: fields[9] == null ? 1.5 : fields[9] as double,
+      paragraphSpacing: fields[10] == null ? 8.0 : fields[10] as double,
+      lastReadMode: fields[11] == null ? false : fields[11] as bool,
+      deletedAt: fields[12] as DateTime?,
+      colorValue: fields[13] as int?,
+      tags: (fields[14] as List?)?.cast<String>(),
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, Note obj) {
+    writer
+      ..writeByte(15)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.title)
+      ..writeByte(2)
+      ..write(obj.content)
+      ..writeByte(3)
+      ..write(obj.createdAt)
+      ..writeByte(4)
+      ..write(obj.updatedAt)
+      ..writeByte(5)
+      ..write(obj.isPinned)
+      ..writeByte(6)
+      ..write(obj.folderId)
+      ..writeByte(7)
+      ..write(obj.todoTxtContent)
+      ..writeByte(8)
+      ..write(obj.isDeleted)
+      ..writeByte(9)
+      ..write(obj.lineHeightMultiplier)
+      ..writeByte(10)
+      ..write(obj.paragraphSpacing)
+      ..writeByte(11)
+      ..write(obj.lastReadMode)
+      ..writeByte(12)
+      ..write(obj.deletedAt)
+      ..writeByte(13)
+      ..write(obj.colorValue)
+      ..writeByte(14)
+      ..write(obj.tags);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NoteAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}

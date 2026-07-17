@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">trudido</string>
+    <string name="widget_description">Display your tasks and mark them complete</string>
+    <string name="calendar_widget_description">Calendar view with daily tasks</string>
+    <string name="calendar_widget_name">Calendar &amp; Tasks</string>
+</resources>

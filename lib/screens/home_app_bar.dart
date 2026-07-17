@@ -1,0 +1,484 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trudido/utils/responsive_size.dart';
+
+import '../providers/filter_providers.dart';
+import '../providers/settings_search_provider.dart';
+import '../providers/app_providers.dart';
+import '../controllers/task_controller.dart';
+import '../controllers/notes_controller.dart';
+import '../controllers/event_controller.dart';
+import '../controllers/preferences_controller.dart';
+import '../services/folder_provider.dart';
+import '../repositories/note_folder_repository.dart';
+import '../widgets/user_avatar_widget.dart';
+import 'home_screen_notifiers.dart';
+import '../widgets/common/common.dart';
+
+/// AppBar widget for the home screen.
+/// Handles search mode and multi-select mode.
+class HomeAppBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
+  final TextEditingController searchController;
+  final VoidCallback onOpenPersonalization;
+
+  const HomeAppBar({
+    super.key,
+    required this.searchController,
+    required this.onOpenPersonalization,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  ConsumerState<HomeAppBar> createState() => _HomeAppBarState();
+}
+
+class _HomeAppBarState extends ConsumerState<HomeAppBar>
+    with SingleTickerProviderStateMixin {
+  Timer? _debounceTimer;
+  late AnimationController _searchModeController;
+  late Animation<double> _searchFadeAnimation;
+  bool _wasSearchMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchModeController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _searchFadeAnimation = CurvedAnimation(
+      parent: _searchModeController,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchModeController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+
+    // Debounce: wait 300ms before updating search
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      // Universal search - update tasks, notes, folders, and settings
+      ref.read(searchQueryProvider.notifier).update(value);
+      ref.read(notesSearchQueryProvider.notifier).update(value);
+      ref.read(settingsSearchQueryProvider.notifier).update(value);
+      ref.read(folderSearchQueryProvider.notifier).update(value);
+      ref.read(noteFolderSearchQueryProvider.notifier).update(value);
+      // Persist to search history
+      if (value.trim().length >= 3) {
+        ref.read(preferencesControllerProvider).addSearchHistory(value.trim());
+      }
+    });
+  }
+
+  void _exitSearch() {
+    _debounceTimer?.cancel();
+    ref.read(searchModeProvider.notifier).update(false);
+    widget.searchController.clear();
+    ref.read(searchQueryProvider.notifier).update('');
+    ref.read(notesSearchQueryProvider.notifier).update('');
+    ref.read(settingsSearchQueryProvider.notifier).update('');
+    ref.read(folderSearchQueryProvider.notifier).update('');
+    ref.read(noteFolderSearchQueryProvider.notifier).update('');
+    ref.read(searchScopeProvider.notifier).update(<String>{});
+  }
+
+  void _clearSearch() {
+    _debounceTimer?.cancel();
+    widget.searchController.clear();
+    ref.read(searchQueryProvider.notifier).update('');
+    ref.read(notesSearchQueryProvider.notifier).update('');
+    ref.read(settingsSearchQueryProvider.notifier).update('');
+    ref.read(folderSearchQueryProvider.notifier).update('');
+    ref.read(noteFolderSearchQueryProvider.notifier).update('');
+    ref.read(searchScopeProvider.notifier).update(<String>{});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSearchMode = ref.watch(searchModeProvider);
+    final currentTab = ref.watch(currentTabProvider);
+    final preferences = ref.watch(preferencesStateProvider);
+    final isAmoledBlack =
+        preferences.useBlackTheme &&
+        Theme.of(context).brightness == Brightness.dark;
+    final multiMode = ref.watch(multiSelectModeProvider);
+    final selectedIds = ref.watch(selectedTodoIdsProvider);
+    final selectedEventIds = ref.watch(selectedEventIdsProvider);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final isActiveSearch = isSearchMode && currentTab <= 2;
+
+    // Drive the search-mode animation controller
+    if (isActiveSearch && !_wasSearchMode) {
+      _wasSearchMode = true;
+      _searchModeController.forward();
+    } else if (!isActiveSearch && _wasSearchMode) {
+      _wasSearchMode = false;
+      _searchModeController.reverse();
+    }
+
+    final currentNotesViewMode = ref.watch(notesViewModeProvider);
+    final isSpatialCanvasEnabled = preferences.enableSpatialCanvas;
+
+    if (!isSpatialCanvasEnabled &&
+        currentTab == 2 &&
+        currentNotesViewMode == 'spatial') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (ref.read(notesViewModeProvider) == 'spatial') {
+          ref.read(notesViewModeProvider.notifier).update('grid');
+        }
+      });
+    }
+
+    final isSpatialCanvas =
+        currentTab == 2 &&
+        isSpatialCanvasEnabled &&
+        currentNotesViewMode == 'spatial';
+
+    // In spatial canvas mode: transparent bar with only the view switcher
+    if (isSpatialCanvas) {
+      return AppBar(
+        automaticallyImplyLeading: false,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: SegmentedButton<String>(
+          showSelectedIcon: false,
+          style: SegmentedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          segments: const [
+            ButtonSegment(value: 'grid', icon: Icon(Icons.grid_view, size: 18)),
+            ButtonSegment(value: 'list', icon: Icon(Icons.view_list, size: 18)),
+            ButtonSegment(
+              value: 'spatial',
+              icon: Icon(Icons.space_dashboard_outlined, size: 18),
+            ),
+          ],
+          selected: const {'spatial'},
+          onSelectionChanged: (selected) {
+            ref.read(notesViewModeProvider.notifier).update(selected.first);
+          },
+        ),
+        centerTitle: true,
+      );
+    }
+
+    final bgColor = isAmoledBlack ? Colors.black : colorScheme.surface;
+    final surfaceTint = isAmoledBlack
+        ? Colors.transparent
+        : colorScheme.surfaceTint;
+
+    return AppBar(
+      backgroundColor: bgColor,
+      surfaceTintColor: surfaceTint,
+      leading: _buildLeading(
+        isActiveSearch: isActiveSearch,
+        multiMode: multiMode,
+        colorScheme: colorScheme,
+      ),
+      title: _buildTitle(
+        isActiveSearch: isActiveSearch,
+        multiMode: multiMode,
+        currentTab: currentTab,
+        selectedCount: selectedIds.length + selectedEventIds.length,
+        theme: theme,
+        colorScheme: colorScheme,
+      ),
+      actions: _buildActions(
+        context: context,
+        isActiveSearch: isActiveSearch,
+        multiMode: multiMode,
+        currentTab: currentTab,
+        selectedIds: selectedIds,
+        selectedEventIds: selectedEventIds,
+        colorScheme: colorScheme,
+      ),
+    );
+  }
+
+  /// Builds the leading icon with animated transitions
+  Widget _buildLeading({
+    required bool isActiveSearch,
+    required bool multiMode,
+    required ColorScheme colorScheme,
+  }) {
+    Widget child;
+    if (isActiveSearch) {
+      child = ExpressiveIconButton(
+        key: const ValueKey('back'),
+        icon: Icon(Icons.arrow_back_rounded, color: colorScheme.onSurface),
+        onPressed: _exitSearch,
+      );
+    } else if (multiMode) {
+      child = ExpressiveIconButton(
+        key: const ValueKey('close'),
+        icon: ScaledIcon(Icons.close),
+        onPressed: () {
+          ref.read(multiSelectModeProvider.notifier).update(false);
+          ref.read(selectedTodoIdsProvider.notifier).clear();
+          ref.read(selectedEventIdsProvider.notifier).clear();
+        },
+      );
+    } else {
+      child = Builder(
+        key: const ValueKey('menu'),
+        builder: (ctx) => ExpressiveIconButton(
+          icon: ScaledIcon(Icons.menu, color: colorScheme.primary),
+          tooltip: '打开菜单',
+          onPressed: () => Scaffold.of(ctx).openDrawer(),
+        ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: child,
+    );
+  }
+
+  /// Builds the title area: active search bar, multi-select count, or resting trigger.
+  Widget _buildTitle({
+    required bool isActiveSearch,
+    required bool multiMode,
+    required int currentTab,
+    required int selectedCount,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    // Active search takes priority
+    if (isActiveSearch) {
+      return _buildM3SearchBar(
+        isActive: true,
+        theme: theme,
+        colorScheme: colorScheme,
+      );
+    }
+
+    // Multi-select title
+    if (multiMode && currentTab == 1) {
+      return Text(
+        '已选择 $selectedCount 项',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: colorScheme.onSurface,
+        ),
+      );
+    }
+
+    // Resting search trigger
+    return _buildM3SearchBar(
+      isActive: false,
+      theme: theme,
+      colorScheme: colorScheme,
+    );
+  }
+
+  /// Builds the action buttons
+  List<Widget> _buildActions({
+    required BuildContext context,
+    required bool isActiveSearch,
+    required bool multiMode,
+    required int currentTab,
+    required Set<String> selectedIds,
+    required Set<String> selectedEventIds,
+    required ColorScheme colorScheme,
+  }) {
+    return [
+      if (currentTab == 1 && multiMode)
+        ExpressiveIconButton(
+          icon: Icon(
+            Icons.delete_outline,
+            color: selectedIds.isEmpty && selectedEventIds.isEmpty
+                ? colorScheme.onSurface.withAlpha(100)
+                : colorScheme.error,
+          ),
+          tooltip: '删除',
+          onPressed: selectedIds.isEmpty && selectedEventIds.isEmpty
+              ? null
+              : () => _showDeleteConfirmation(
+                  context,
+                  ref,
+                  selectedIds,
+                  selectedEventIds,
+                  colorScheme,
+                ),
+        ),
+      if (isActiveSearch && widget.searchController.text.isNotEmpty)
+        ExpressiveIconButton(
+          icon: Icon(
+            Icons.close_rounded,
+            color: colorScheme.onSurfaceVariant,
+            size: 20,
+          ),
+          tooltip: '清除搜索',
+          onPressed: _clearSearch,
+        ),
+      if (!multiMode && !isActiveSearch)
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: UserAvatarWidget(
+            radius: 18,
+            onTap: widget.onOpenPersonalization,
+          ),
+        ),
+    ];
+  }
+
+  /// Shows the delete confirmation dialog for multi-select mode
+  Future<void> _showDeleteConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    Set<String> selectedIds,
+    Set<String> selectedEventIds,
+    ColorScheme colorScheme,
+  ) async {
+    final totalCount = selectedIds.length + selectedEventIds.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('移至回收站'),
+        content: Text(
+          '将 $totalCount 个选定任务移至回收站？稍后可从中恢复。',
+        ),
+        actions: [
+          ExpressiveTextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          ExpressiveTextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              '移至回收站',
+              style: TextStyle(color: colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final controller = ref.read(taskControllerProvider.notifier);
+      if (selectedIds.isNotEmpty) await controller.bulkDelete(selectedIds);
+      if (selectedEventIds.isNotEmpty) {
+        final eventController = ref.read(eventControllerProvider.notifier);
+        await eventController.bulkDelete(selectedEventIds);
+      }
+      ref.read(selectedTodoIdsProvider.notifier).clear();
+      ref.read(selectedEventIdsProvider.notifier).clear();
+      ref.read(multiSelectModeProvider.notifier).update(false);
+    }
+  }
+
+  /// M3-styled search bar that morphs between resting and active states
+  Widget _buildM3SearchBar({
+    required bool isActive,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final pill = AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      height: 48,
+      decoration: BoxDecoration(
+        color: isActive
+            ? colorScheme.surfaceContainerHighest
+            : colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: isActive
+          ? FadeTransition(
+              opacity: _searchFadeAnimation,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextField(
+                    controller: widget.searchController,
+                    autofocus: true,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: '搜索 Trudido',
+                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                    ),
+                    onChanged: _onSearchChanged,
+                  ),
+                ),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    color: colorScheme.onSurfaceVariant,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '搜索 Trudido',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+
+    if (isActive) return pill;
+    return ExpressiveGestureDetector(
+      onTap: () => ref.read(searchModeProvider.notifier).update(true),
+      child: pill,
+    );
+  }
+}

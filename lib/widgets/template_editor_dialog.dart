@@ -1,0 +1,423 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/material.dart';
+import '../models/folder_template.dart';
+import '../widgets/common/common.dart';
+
+class TemplateEditorDialog extends StatefulWidget {
+  final FolderTemplate? template;
+  final Function(FolderTemplate) onSave;
+
+  const TemplateEditorDialog({super.key, this.template, required this.onSave});
+
+  @override
+  State<TemplateEditorDialog> createState() => _TemplateEditorDialogState();
+}
+
+class _TemplateEditorDialogState extends State<TemplateEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
+  List<String> _keywords = [];
+  List<TaskTemplateData> _tasks = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.template?.name ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.template?.description ?? '',
+    );
+    _keywords = List.from(widget.template?.keywords ?? []);
+
+    _tasks =
+        widget.template?.taskTemplates
+            .map(
+              (t) => TaskTemplateData(
+                text: t.text,
+                priority: t.priority,
+                notes: t.notes ?? '',
+              ),
+            )
+            .toList() ??
+        [];
+
+    if (_tasks.isEmpty) {
+      _tasks.add(TaskTemplateData());
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Text(
+                  widget.template == null ? '创建模板' : '编辑模板',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                ExpressiveIconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            Expanded(
+              child: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: '模板名称',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return '请输入模板名称';
+                          }
+                          return null;
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: '描述（可选）',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 2,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      Text(
+                        '关键词（用于自动建议）',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildKeywordsSection(),
+
+                      const SizedBox(height: 24),
+
+                      Row(
+                        children: [
+                          Text(
+                            '任务',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          ExpressiveTextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _tasks.add(TaskTemplateData());
+                              });
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('添加任务'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildTasksSection(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                ExpressiveTextButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: 16),
+                FilledButton(
+                  onPressed: _isLoading ? null : _saveTemplate,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('保存模板'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKeywordsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ..._keywords.map(
+              (keyword) => Chip(
+                label: Text(keyword),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.tertiaryContainer,
+                labelStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onTertiaryContainer,
+                ),
+                deleteIconColor: Theme.of(
+                  context,
+                ).colorScheme.onTertiaryContainer,
+                onDeleted: () {
+                  setState(() {
+                    _keywords.remove(keyword);
+                  });
+                },
+              ),
+            ),
+            ActionChip(
+              label: const Text('+ 添加关键词'),
+              backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+              labelStyle: TextStyle(
+                color: Theme.of(context).colorScheme.onTertiary,
+              ),
+              onPressed: () => _addKeywordDialog(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '关键词帮助应用在用户创建类似名称的文件夹时建议此模板',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTasksSection() {
+    return Column(
+      children: _tasks.asMap().entries.map((entry) {
+        final index = entry.key;
+        final task = entry.value;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '任务 ${index + 1}',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_tasks.length > 1)
+                      ExpressiveIconButton(
+                        onPressed: () {
+                          setState(() {
+                            _tasks.removeAt(index);
+                          });
+                        },
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: task.text,
+                  decoration: const InputDecoration(
+                    labelText: '任务描述',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => task.text = value,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return '请输入任务描述';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: task.priority,
+                        decoration: const InputDecoration(
+                          labelText: '优先级',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ['low', 'medium', 'high']
+                            .map(
+                              (priority) => DropdownMenuItem(
+                                value: priority,
+                                child: Text(priority.toUpperCase()),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => task.priority = value ?? 'medium',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: task.notes,
+                        decoration: const InputDecoration(
+                          labelText: '备注（可选）',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) => task.notes = value,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _addKeywordDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('添加关键词'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: '输入关键词（如"项目"、"购物"）',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          ExpressiveTextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final keyword = controller.text.trim().toLowerCase();
+              if (keyword.isNotEmpty && !_keywords.contains(keyword)) {
+                setState(() {
+                  _keywords.add(keyword);
+                });
+              }
+              Navigator.of(context).pop();
+            },
+            child: const Text('添加'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _saveTemplate() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_tasks.where((t) => t.text.trim().isNotEmpty).isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请至少添加一个任务')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final validTasks = _tasks.where((t) => t.text.trim().isNotEmpty).toList();
+
+      final template = FolderTemplate(
+        id: widget.template?.id,
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        keywords: _keywords,
+        taskTemplates: validTasks.asMap().entries.map((entry) {
+          final task = entry.value;
+          return TaskTemplate(
+            text: task.text.trim(),
+            priority: task.priority,
+            notes: task.notes.isEmpty ? null : task.notes,
+            sortOrder: entry.key,
+          );
+        }).toList(),
+        isBuiltIn: widget.template?.isBuiltIn ?? false,
+        useCount: widget.template?.useCount ?? 0,
+      );
+
+      widget.onSave(template);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+}
+
+class TaskTemplateData {
+  String text;
+  String priority;
+  String notes;
+
+  TaskTemplateData({this.text = '', this.priority = 'medium', this.notes = ''});
+}

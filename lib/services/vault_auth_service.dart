@@ -1,0 +1,195 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/material.dart';
+import 'biometric_auth_service.dart';
+import 'vault_password_service.dart';
+import '../widgets/common/common.dart';
+
+/// Service for authenticating access to vault folders
+/// Tries biometric first, falls back to password after 3 failed attempts
+class VaultAuthService {
+  // Track failed biometric attempts per folder in memory
+  static final Map<String, int> _failedAttempts = {};
+  static const int maxBiometricAttempts = 3;
+
+  /// Authenticate to access a vault folder
+  /// Returns true if authentication successful, false otherwise
+  ///
+  /// Flow:
+  /// 1. If useBiometric is true and available, try biometric first
+  /// 2. After 3 failed biometric attempts, require password
+  /// 3. If no biometric available or disabled, go straight to password
+  static Future<bool> authenticate({
+    required BuildContext context,
+    required String folderId,
+    required String folderName,
+    required bool useBiometric,
+    required bool hasPassword,
+  }) async {
+    debugPrint('[VaultAuth] Starting authentication for $folderName');
+    debugPrint(
+      '[VaultAuth] useBiometric: $useBiometric, hasPassword: $hasPassword',
+    );
+
+    // Check if biometric is available and enabled
+    final biometricAvailable =
+        useBiometric && await BiometricAuthService.isBiometricsAvailable();
+
+    debugPrint('[VaultAuth] Biometric available: $biometricAvailable');
+
+    // Get failed attempts count
+    final attempts = _failedAttempts[folderId] ?? 0;
+    debugPrint('[VaultAuth] Failed attempts: $attempts');
+
+    // Try biometric if available and under max attempts
+    if (biometricAvailable && attempts < maxBiometricAttempts) {
+      debugPrint('[VaultAuth] Attempting biometric authentication...');
+      final biometricSuccess = await BiometricAuthService.authenticate(
+        reason: 'Authenticate to access $folderName',
+        biometricOnly: true,
+      );
+
+      debugPrint('[VaultAuth] Biometric result: $biometricSuccess');
+
+      if (biometricSuccess) {
+        // Reset failed attempts on success
+        _failedAttempts[folderId] = 0;
+        return true;
+      } else {
+        // Increment failed attempts
+        _failedAttempts[folderId] = attempts + 1;
+
+        // If reached max attempts, require password
+        final currentAttempts = _failedAttempts[folderId] ?? 0;
+        if (currentAttempts >= maxBiometricAttempts) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '生物识别失败次数过多，请输入密码。',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    // Fall back to password if:
+    // - Biometric not available/disabled
+    // - Biometric failed and reached max attempts
+    // - User cancelled biometric
+    if (hasPassword) {
+      if (context.mounted) {
+        final password = await _showPasswordDialog(context, folderName);
+
+        if (password != null) {
+          final isValid = await VaultPasswordService.verifyVaultPassword(
+            folderId,
+            password,
+          );
+
+          if (isValid) {
+            // Reset failed attempts on successful password entry
+            _failedAttempts[folderId] = 0;
+            return true;
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('密码错误'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Show password input dialog
+  static Future<String?> _showPasswordDialog(
+    BuildContext context,
+    String folderName,
+  ) async {
+    final controller = TextEditingController();
+    bool obscureText = true;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('输入 $folderName 的密码'),
+          content: TextField(
+            controller: controller,
+            obscureText: obscureText,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: '密码',
+              border: const OutlineInputBorder(),
+              suffixIcon: ExpressiveIconButton(
+                icon: Icon(
+                  obscureText ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    obscureText = !obscureText;
+                  });
+                },
+              ),
+            ),
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                Navigator.of(context).pop(value);
+              }
+            },
+          ),
+          actions: [
+            ExpressiveTextButton(
+              onPressed: () => Navigator.of(context).pop(null),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final password = controller.text;
+                if (password.isNotEmpty) {
+                  Navigator.of(context).pop(password);
+                }
+              },
+              child: const Text('解锁'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Reset failed attempts for a folder (call when folder is unlocked successfully)
+  static void resetFailedAttempts(String folderId) {
+    _failedAttempts[folderId] = 0;
+  }
+
+  /// Clear all failed attempts (useful for testing or app restart)
+  static void clearAllFailedAttempts() {
+    _failedAttempts.clear();
+  }
+}

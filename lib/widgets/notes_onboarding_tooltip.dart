@@ -1,0 +1,492 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/common/common.dart';
+
+///
+/// Usage:
+/// ```dart
+/// NotesOnboardingTooltip(
+///   child: YourNotesListWidget(),
+/// )
+/// ```
+class NotesOnboardingTooltip extends StatefulWidget {
+  final Widget child;
+  final String? customMessage;
+
+  const NotesOnboardingTooltip({
+    super.key,
+    required this.child,
+    this.customMessage,
+  });
+
+  @override
+  State<NotesOnboardingTooltip> createState() => _NotesOnboardingTooltipState();
+}
+
+class _NotesOnboardingTooltipState extends State<NotesOnboardingTooltip>
+    with TickerProviderStateMixin {
+  static const String _tooltipSeenKey = 'notes_onboarding_tooltip_seen';
+  bool _showTooltip = false;
+  bool _isLoading = true;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+    _checkTooltipStatus();
+  }
+
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOutCubicEmphasized,
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+  }
+
+  Future<void> _checkTooltipStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasSeenTooltip = prefs.getBool(_tooltipSeenKey) ?? false;
+
+      setState(() {
+        _showTooltip = !hasSeenTooltip;
+        _isLoading = false;
+      });
+
+      if (_showTooltip) {
+        // Small delay to allow the UI to settle
+        await Future.delayed(const Duration(milliseconds: 350));
+        if (mounted) {
+          _animationController.forward();
+        }
+      }
+    } catch (e) {
+      // Handle SharedPreferences error gracefully
+      setState(() {
+        _showTooltip = false;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _dismissTooltip() async {
+    try {
+      // Animate out
+      await _animationController.reverse();
+
+      // Save to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_tooltipSeenKey, true);
+
+      // Update state
+      if (mounted) {
+        setState(() {
+          _showTooltip = false;
+        });
+      }
+    } catch (e) {
+      // Even if saving fails, hide the tooltip
+      if (mounted) {
+        setState(() {
+          _showTooltip = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show loading state briefly while checking SharedPreferences
+    if (_isLoading) {
+      return widget.child;
+    }
+
+    return Stack(
+      children: [
+        // Main content
+        widget.child,
+
+        // Onboarding overlay
+        if (_showTooltip)
+          AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _fadeAnimation.value,
+                child: ExpressiveGestureDetector(
+                  onTap: _dismissTooltip,
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: Colors.black.withValues(alpha: 0.75),
+                    child: Center(
+                      child: Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: Container(
+                          margin: const EdgeInsets.all(32),
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Header
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.pan_tool,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      '手势引导',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Gesture instructions
+                              _buildGestureInstruction(
+                                context,
+                                icon: Icons.pan_tool,
+                                title: '轻触预览',
+                                description:
+                                    '快速轻触笔记即可查看完整内容及渲染后的 Markdown。',
+                              ),
+                              const SizedBox(height: 16),
+                              _buildGestureInstruction(
+                                context,
+                                icon: Icons.touch_app,
+                                title: '长按编辑',
+                                description:
+                                    '长按笔记可直接进入编辑模式。',
+                              ),
+                              const SizedBox(height: 32),
+
+                              // Dismissal instruction
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info,
+                                      size: 16,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '轻触任意位置可关闭此引导',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGestureInstruction(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.8),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Complete example implementation with dummy data
+/// This shows how to integrate the onboarding tooltip into your notes screen
+class NotesScreenWithOnboarding extends StatelessWidget {
+  const NotesScreenWithOnboarding({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('笔记')),
+      body: NotesOnboardingTooltip(
+        child: ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: _dummyNotes.length,
+          itemBuilder: (context, index) {
+            final note = _dummyNotes[index];
+            return _NoteCard(note: note);
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Dummy note model for example
+class DummyNote {
+  final String title;
+  final String content;
+  final DateTime updatedAt;
+
+  DummyNote({
+    required this.title,
+    required this.content,
+    required this.updatedAt,
+  });
+}
+
+/// Example note card with gesture detection
+class _NoteCard extends StatelessWidget {
+  final DummyNote note;
+
+  const _NoteCard({required this.note});
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpressiveGestureDetector(
+      onTap: () {
+        // Handle tap - navigate to preview
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('预览：${note.title}'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      },
+      onLongPress: () {
+        // Handle long press - navigate to editor
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('编辑：${note.title}'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ),
+        );
+      },
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                note.title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                note.content,
+                style: Theme.of(context).textTheme.bodyMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _formatDate(note.updatedAt),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} 天前';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} 小时前';
+    } else {
+      return '刚刚';
+    }
+  }
+}
+
+/// Dummy data for example
+final List<DummyNote> _dummyNotes = [
+  DummyNote(
+    title: '会议笔记',
+    content:
+        '# Weekly Standup\n\n- Discussed project progress\n- **Action items** assigned\n- Next meeting scheduled',
+    updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+  ),
+  DummyNote(
+    title: '购物清单',
+    content: '- Milk\n- Eggs\n- Bread\n- *Don\'t forget* the organic apples',
+    updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+  ),
+  DummyNote(
+    title: '食谱创意',
+    content:
+        '## Pasta Night\n\n`Ingredients`: tomatoes, basil, garlic\n\n**Preparation**: 30 minutes',
+    updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+  ),
+  DummyNote(
+    title: '书籍语录',
+    content:
+        '> "The only way to do great work is to love what you do."\n\nFrom Steve Jobs biography',
+    updatedAt: DateTime.now().subtract(const Duration(days: 3)),
+  ),
+];
+
+/// Example main app to test the onboarding
+class OnboardingExampleApp extends StatelessWidget {
+  const OnboardingExampleApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '笔记引导示例',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      ),
+      home: const NotesScreenWithOnboarding(),
+    );
+  }
+}

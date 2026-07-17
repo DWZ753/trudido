@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Trudido</string>
+    <string name="widget_description">显示你的任务并标记完成</string>
+    <string name="calendar_widget_description">日历视图与每日任务</string>
+    <string name="calendar_widget_name">日历与任务</string>
+</resources>

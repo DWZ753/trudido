@@ -1,0 +1,337 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+/// Immutable snapshot of user preferences consumed by widgets.
+class PreferencesState {
+  final String themeMode; // system | light | dark
+  final bool useDynamicColor;
+  final bool useBlackTheme;
+  final int accentColorSeed; // Color value for Material 3 seed color
+  final bool compactDensity;
+  final bool highContrast;
+  final String
+  contrastLevel; // standard | medium | high (Material 3 January 2026)
+  final bool hideGreeting;
+  final int greetingLanguage; // Language index for greeting header
+  final String fabPosition; // left | center | right
+  final String swipeLeftAction; // 'none', 'delete', 'pin'
+  final String swipeRightAction; // 'none', 'delete', 'pin'
+  final bool hideNoteToolbar; // Hide formatting toolbar in note editor
+  final bool showMoreNoteToolbar; // Show expanded toolbar options
+  final bool
+  useFloatingNoteToolbar; // Use floating FAB toolbar instead of top toolbar
+  final bool useQuickInputBar; // Use bottom input bar instead of FAB menu
+  final bool
+  enableNoteHistory; // Enable note history, undo/redo feature (experimental)
+  final bool
+  enableSpatialCanvas; // Enable Spatial Canvas notes view (experimental)
+  final bool hideBottomNavigation; // Hide bottom nav/rail
+  final int firstDayOfWeek; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  final String defaultTaskView; // list | calendar - default view on app start
+  final String?
+  defaultNotesFolderId; // Default folder for Notes tab (null = All Notes)
+  final bool hapticsEnabled; // Enable haptic feedback for interactions
+  final String
+  fontFamily; // Font family: roboto | opensans | jetbrains | lexend
+  final String timeFormat; // system | 12h | 24h
+  final double? _lineHeightMultiplier; // Line height multiplier (e.g. 1.2)
+  double get lineHeightMultiplier => _lineHeightMultiplier ?? 1.2;
+  final double? _paragraphSpacing; // Paragraph spacing in points (e.g. 8.0)
+  double get paragraphSpacing => _paragraphSpacing ?? 8.0;
+  final String? activeCustomThemeId; // Active custom theme ID (null = none)
+  final bool?
+  _blackoutRecents; // Black out app content in Android recents (privacy)
+  bool get blackoutRecents => _blackoutRecents ?? false;
+  final bool? _autoOpenKeyboardInNotes; // Auto-open keyboard when opening notes
+  bool get autoOpenKeyboardInNotes => _autoOpenKeyboardInNotes ?? true;
+  final bool? _defaultNoteReadMode; // Default to read mode when opening notes
+  bool get defaultNoteReadMode => _defaultNoteReadMode ?? false;
+  final bool?
+  _dismissedBatteryOptimizationReminder; // User dismissed the battery opt reminder
+  bool get dismissedBatteryOptimizationReminder =>
+      _dismissedBatteryOptimizationReminder ?? false;
+  final bool? _enableBin; // Whether the bin (trash) is enabled
+  bool get enableBin => _enableBin ?? true;
+  final int?
+  _autoDeleteDaysInBin; // Days after which bin items are auto-deleted (0 = disabled)
+  int get autoDeleteDaysInBin => _autoDeleteDaysInBin ?? 0;
+  final double?
+  _floatingToolbarX; // Saved X position of floating toolbar (fraction 0..1)
+  double get floatingToolbarX => _floatingToolbarX ?? -1.0; // -1 = not set
+  final double?
+  _floatingToolbarY; // Saved Y position of floating toolbar (fraction 0..1)
+  double get floatingToolbarY => _floatingToolbarY ?? -1.0; // -1 = not set
+  final bool?
+  _floatingToolbarExpanded; // Whether the floating toolbar panel is open
+  bool get floatingToolbarExpanded => _floatingToolbarExpanded ?? false;
+  final bool?
+  _floatingToolbarDragHintShown; // Whether the drag-to-detach hint was shown
+  bool get floatingToolbarDragHintShown =>
+      _floatingToolbarDragHintShown ?? false;
+  final bool? _hideNavLabels; // Hide labels under navigation bar icons
+  bool get hideNavLabels => _hideNavLabels ?? false;
+  final bool?
+  _showOverviewTab; // Whether the Overview tab is shown in navigation
+  bool get showOverviewTab => _showOverviewTab ?? true;
+  final bool? _useBlurEffects; // Enable blur effects for backdrop overlays
+  bool get useBlurEffects => _useBlurEffects ?? true;
+  final bool? _floatingNavBar; // Floating frosted-glass navigation bar
+  bool get floatingNavBar => _floatingNavBar ?? true;
+  final bool?
+  _persistentNotifications; // Prevent swipe-dismiss of notifications
+  bool get persistentNotifications => _persistentNotifications ?? false;
+  final bool?
+  _compactNotesView; // Show only titles in notes list (hide body, images, tables)
+  bool get compactNotesView => _compactNotesView ?? false;
+  final bool?
+  _autoCompleteEvents; // Auto-complete events when their end time passes
+  bool get autoCompleteEvents => _autoCompleteEvents ?? true;
+  final double? _editorFontSize; // Editor font size in points (e.g. 16.0)
+  double get editorFontSize => _editorFontSize ?? 16.0;
+  final String?
+  _editorFontFamily; // Editor font family ('default' = inherit global app font)
+  String get editorFontFamily => _editorFontFamily ?? 'default';
+  final List<String> searchHistory; // Recent search queries (max 10)
+
+  const PreferencesState({
+    required this.themeMode,
+    required this.useDynamicColor,
+    required this.useBlackTheme,
+    required this.accentColorSeed,
+    required this.compactDensity,
+    required this.highContrast,
+    required this.contrastLevel,
+    required this.hideGreeting,
+    required this.greetingLanguage,
+    required this.fabPosition,
+    required this.swipeLeftAction,
+    required this.swipeRightAction,
+    required this.hideNoteToolbar,
+    required this.showMoreNoteToolbar,
+    required this.useFloatingNoteToolbar,
+    required this.useQuickInputBar,
+    required this.enableNoteHistory,
+    required this.enableSpatialCanvas,
+    required this.hideBottomNavigation,
+    required this.firstDayOfWeek,
+    required this.defaultTaskView,
+    this.defaultNotesFolderId,
+    required this.hapticsEnabled,
+    required this.fontFamily,
+    required this.timeFormat,
+    this.activeCustomThemeId,
+    double? lineHeightMultiplier,
+    double? paragraphSpacing,
+    bool? blackoutRecents,
+    bool? autoOpenKeyboardInNotes,
+    bool? defaultNoteReadMode,
+    bool? dismissedBatteryOptimizationReminder,
+    bool? enableBin,
+    int? autoDeleteDaysInBin,
+    double? floatingToolbarX,
+    double? floatingToolbarY,
+    bool? floatingToolbarExpanded,
+    bool? floatingToolbarDragHintShown,
+    bool? hideNavLabels,
+    bool? showOverviewTab,
+    bool? useBlurEffects,
+    bool? floatingNavBar,
+    bool? persistentNotifications,
+    bool? compactNotesView,
+    bool? autoCompleteEvents,
+    double? editorFontSize,
+    String? editorFontFamily,
+    this.searchHistory = const [],
+  }) : _lineHeightMultiplier = lineHeightMultiplier,
+       _editorFontSize = editorFontSize,
+       _editorFontFamily = editorFontFamily,
+       _hideNavLabels = hideNavLabels,
+       _showOverviewTab = showOverviewTab,
+       _useBlurEffects = useBlurEffects,
+       _floatingNavBar = floatingNavBar,
+       _paragraphSpacing = paragraphSpacing,
+       _blackoutRecents = blackoutRecents,
+       _autoOpenKeyboardInNotes = autoOpenKeyboardInNotes,
+       _defaultNoteReadMode = defaultNoteReadMode,
+       _dismissedBatteryOptimizationReminder =
+           dismissedBatteryOptimizationReminder,
+       _enableBin = enableBin,
+       _autoDeleteDaysInBin = autoDeleteDaysInBin,
+       _floatingToolbarX = floatingToolbarX,
+       _floatingToolbarY = floatingToolbarY,
+       _floatingToolbarExpanded = floatingToolbarExpanded,
+       _floatingToolbarDragHintShown = floatingToolbarDragHintShown,
+       _persistentNotifications = persistentNotifications,
+       _compactNotesView = compactNotesView,
+       _autoCompleteEvents = autoCompleteEvents;
+
+  PreferencesState copyWith({
+    String? themeMode,
+    bool? useDynamicColor,
+    bool? useBlackTheme,
+    int? accentColorSeed,
+    bool? compactDensity,
+    bool? highContrast,
+    String? contrastLevel,
+    bool? hideGreeting,
+    int? greetingLanguage,
+    String? fabPosition,
+    String? swipeLeftAction,
+    String? swipeRightAction,
+    bool? hideNoteToolbar,
+    bool? showMoreNoteToolbar,
+    bool? useFloatingNoteToolbar,
+    bool? useQuickInputBar,
+    bool? enableNoteHistory,
+    bool? enableSpatialCanvas,
+    bool? hideBottomNavigation,
+    int? firstDayOfWeek,
+    String? defaultTaskView,
+    String? defaultNotesFolderId,
+    bool? hapticsEnabled,
+    String? fontFamily,
+    String? timeFormat,
+    String? activeCustomThemeId,
+    double? lineHeightMultiplier,
+    double? paragraphSpacing,
+    bool? blackoutRecents,
+    bool? autoOpenKeyboardInNotes,
+    bool? defaultNoteReadMode,
+    bool? dismissedBatteryOptimizationReminder,
+    bool? enableBin,
+    int? autoDeleteDaysInBin,
+    double? floatingToolbarX,
+    double? floatingToolbarY,
+    bool? floatingToolbarExpanded,
+    bool? floatingToolbarDragHintShown,
+    bool? hideNavLabels,
+    bool? showOverviewTab,
+    bool? useBlurEffects,
+    bool? floatingNavBar,
+    bool? persistentNotifications,
+    bool? compactNotesView,
+    bool? autoCompleteEvents,
+    double? editorFontSize,
+    String? editorFontFamily,
+    List<String>? searchHistory,
+  }) => PreferencesState(
+    themeMode: themeMode ?? this.themeMode,
+    useDynamicColor: useDynamicColor ?? this.useDynamicColor,
+    useBlackTheme: useBlackTheme ?? this.useBlackTheme,
+    accentColorSeed: accentColorSeed ?? this.accentColorSeed,
+    compactDensity: compactDensity ?? this.compactDensity,
+    highContrast: highContrast ?? this.highContrast,
+    contrastLevel: contrastLevel ?? this.contrastLevel,
+    hideGreeting: hideGreeting ?? this.hideGreeting,
+    greetingLanguage: greetingLanguage ?? this.greetingLanguage,
+    fabPosition: fabPosition ?? this.fabPosition,
+    swipeLeftAction: swipeLeftAction ?? this.swipeLeftAction,
+    swipeRightAction: swipeRightAction ?? this.swipeRightAction,
+    hideNoteToolbar: hideNoteToolbar ?? this.hideNoteToolbar,
+    showMoreNoteToolbar: showMoreNoteToolbar ?? this.showMoreNoteToolbar,
+    useFloatingNoteToolbar:
+        useFloatingNoteToolbar ?? this.useFloatingNoteToolbar,
+    useQuickInputBar: useQuickInputBar ?? this.useQuickInputBar,
+    enableNoteHistory: enableNoteHistory ?? this.enableNoteHistory,
+    enableSpatialCanvas: enableSpatialCanvas ?? this.enableSpatialCanvas,
+    hideBottomNavigation: hideBottomNavigation ?? this.hideBottomNavigation,
+    firstDayOfWeek: firstDayOfWeek ?? this.firstDayOfWeek,
+    defaultTaskView: defaultTaskView ?? this.defaultTaskView,
+    defaultNotesFolderId: defaultNotesFolderId ?? this.defaultNotesFolderId,
+    hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+    fontFamily: fontFamily ?? this.fontFamily,
+    timeFormat: timeFormat ?? this.timeFormat,
+    activeCustomThemeId: activeCustomThemeId ?? this.activeCustomThemeId,
+    lineHeightMultiplier: lineHeightMultiplier ?? this.lineHeightMultiplier,
+    paragraphSpacing: paragraphSpacing ?? this.paragraphSpacing,
+    blackoutRecents: blackoutRecents ?? this.blackoutRecents,
+    autoOpenKeyboardInNotes:
+        autoOpenKeyboardInNotes ?? this.autoOpenKeyboardInNotes,
+    defaultNoteReadMode: defaultNoteReadMode ?? this.defaultNoteReadMode,
+    dismissedBatteryOptimizationReminder:
+        dismissedBatteryOptimizationReminder ??
+        this.dismissedBatteryOptimizationReminder,
+    enableBin: enableBin ?? this.enableBin,
+    autoDeleteDaysInBin: autoDeleteDaysInBin ?? this.autoDeleteDaysInBin,
+    floatingToolbarX: floatingToolbarX ?? this.floatingToolbarX,
+    floatingToolbarY: floatingToolbarY ?? this.floatingToolbarY,
+    floatingToolbarExpanded:
+        floatingToolbarExpanded ?? this.floatingToolbarExpanded,
+    floatingToolbarDragHintShown:
+        floatingToolbarDragHintShown ?? this.floatingToolbarDragHintShown,
+    hideNavLabels: hideNavLabels ?? this.hideNavLabels,
+    showOverviewTab: showOverviewTab ?? this.showOverviewTab,
+    useBlurEffects: useBlurEffects ?? this.useBlurEffects,
+    floatingNavBar: floatingNavBar ?? this.floatingNavBar,
+    persistentNotifications:
+        persistentNotifications ?? this.persistentNotifications,
+    compactNotesView: compactNotesView ?? this.compactNotesView,
+    autoCompleteEvents: autoCompleteEvents ?? this.autoCompleteEvents,
+    editorFontSize: editorFontSize ?? this.editorFontSize,
+    editorFontFamily: editorFontFamily ?? this.editorFontFamily,
+    searchHistory: searchHistory ?? this.searchHistory,
+  );
+
+  static const defaultState = PreferencesState(
+    themeMode: 'system',
+    useDynamicColor: true,
+    useBlackTheme: false,
+    accentColorSeed: 0xFF2196F3, // Default blue color
+    compactDensity: false,
+    highContrast: false,
+    contrastLevel:
+        'standard', // Material 3 January 2026: standard | medium | high
+    hideGreeting: false,
+    greetingLanguage: 0, // Default: English (index 0)
+    fabPosition: 'right',
+    swipeLeftAction: 'delete', // Default: left to delete
+    swipeRightAction: 'pin', // Default: right to pin
+    hideNoteToolbar: false, // Default: show toolbar
+    showMoreNoteToolbar: false, // Default: collapsed
+    useFloatingNoteToolbar:
+        false, // Default: use top toolbar (experimental feature off)
+    useQuickInputBar: false, // Default: use FAB menu (experimental feature off)
+    enableNoteHistory:
+        false, // Default: note history feature off (experimental)
+    enableSpatialCanvas:
+        false, // Default: Spatial Canvas notes view off (experimental)
+    hideBottomNavigation: false, // Default: show nav
+    firstDayOfWeek: 1, // Default: Monday (0=Sunday, 1=Monday, etc.)
+    defaultTaskView: 'list', // Default: list view
+    defaultNotesFolderId: null, // Default: All Notes
+    hapticsEnabled: true, // Default: haptic feedback enabled
+    fontFamily: 'inter', // Default: Inter font (modern, geometric UI typeface)
+    timeFormat: 'system', // Default: auto-detect from device locale
+    lineHeightMultiplier: 1.2,
+    paragraphSpacing: 8.0,
+    autoOpenKeyboardInNotes: true, // Default: auto-open keyboard
+    defaultNoteReadMode: false, // Default: open in edit mode
+    searchHistory: [],
+  );
+
+  /// Resolves whether to use 24-hour format based on the user preference.
+  /// Pass [MediaQuery.of(context).alwaysUse24HourFormat] for system detection.
+  bool resolveUse24Hour(bool systemUse24Hour) {
+    switch (timeFormat) {
+      case '12h':
+        return false;
+      case '24h':
+        return true;
+      default:
+        return systemUse24Hour; // 'system'
+    }
+  }
+}

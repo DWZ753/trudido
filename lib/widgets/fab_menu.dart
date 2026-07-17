@@ -1,0 +1,438 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../screens/home_screen_notifiers.dart';
+import '../controllers/notes_controller.dart';
+import '../providers/app_providers.dart';
+import '../repositories/note_folder_repository.dart';
+import '../widgets/common/common.dart';
+import '../utils/state_notifiers.dart';
+
+// Provider to track FAB menu expanded state
+final fabMenuExpandedProvider = stateProvider<bool>(false);
+
+// Data class for menu items
+class _MenuItem {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  _MenuItem({required this.icon, required this.label, required this.onTap});
+}
+
+/// Material 3 Expandable FAB Menu
+class FabMenu extends ConsumerStatefulWidget {
+  final VoidCallback onAddTask;
+  final VoidCallback onAddNote;
+  final VoidCallback? onAddEvent;
+  final VoidCallback? onAddFromTemplate;
+  final VoidCallback? onCreateVaultNote;
+  final VoidCallback? onLockVault;
+  final VoidCallback? onSearch;
+
+  const FabMenu({
+    super.key,
+    required this.onAddTask,
+    required this.onAddNote,
+    this.onAddEvent,
+    this.onAddFromTemplate,
+    this.onCreateVaultNote,
+    this.onLockVault,
+    this.onSearch,
+  });
+
+  @override
+  ConsumerState<FabMenu> createState() => _FabMenuState();
+}
+
+class _FabMenuState extends ConsumerState<FabMenu>
+    with TickerProviderStateMixin {
+  final List<AnimationController> _itemControllers = [];
+  bool _isExpanded = false;
+
+  // Expose the expanded state
+  bool get isExpanded => _isExpanded;
+
+  @override
+  void dispose() {
+    for (final controller in _itemControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _ensureControllers(int count) {
+    // Add controllers if needed
+    while (_itemControllers.length < count) {
+      _itemControllers.add(
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 200),
+        ),
+      );
+    }
+  }
+
+  void _toggleMenu() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      ref.read(fabMenuExpandedProvider.notifier).update(_isExpanded);
+    });
+    _animateItems();
+  }
+
+  void _animateItems() {
+    const staggerDelay = Duration(milliseconds: 50);
+
+    if (_isExpanded) {
+      // Open: animate from bottom to top (last item first)
+      for (int i = _itemControllers.length - 1; i >= 0; i--) {
+        final delay = staggerDelay * (_itemControllers.length - 1 - i);
+        Future.delayed(delay, () {
+          if (mounted && _isExpanded) {
+            _itemControllers[i].forward();
+          }
+        });
+      }
+    } else {
+      // Close: animate all at once (fast close)
+      for (final controller in _itemControllers) {
+        controller.reverse();
+      }
+    }
+  }
+
+  List<_MenuItem> _getMenuItems(WidgetRef ref) {
+    final currentTab = ref.watch(currentTabProvider);
+
+    if (currentTab == 2) {
+      // Notes Tab - check if we're in a vault
+      final selectedFolderId = ref.watch(selectedNoteFolderProvider);
+      final foldersAsync = ref.watch(noteFoldersProvider);
+      final folders = foldersAsync.value ?? [];
+      final selectedFolder = selectedFolderId != null
+          ? folders.where((f) => f.id == selectedFolderId).firstOrNull
+          : null;
+
+      final isInVault = selectedFolder != null && selectedFolder.isVault;
+
+      if (isInVault) {
+        return [
+          _MenuItem(
+            icon: Icons.note_add_outlined,
+            label: '新建保险库笔记',
+            onTap: widget.onAddNote,
+          ),
+          if (widget.onLockVault != null)
+            _MenuItem(
+              icon: Icons.lock,
+              label: '锁定保险库',
+              onTap: widget.onLockVault!,
+            ),
+          if (widget.onSearch != null)
+            _MenuItem(
+              icon: Icons.search,
+              label: '搜索',
+              onTap: widget.onSearch!,
+            ),
+        ];
+      } else {
+        return [
+          _MenuItem(
+            icon: Icons.note_add_outlined,
+            label: '新建笔记',
+            onTap: widget.onAddNote,
+          ),
+          if (widget.onCreateVaultNote != null)
+            _MenuItem(
+              icon: Icons.lock_outlined,
+              label: '新建保险库笔记',
+              onTap: widget.onCreateVaultNote!,
+            ),
+          if (widget.onSearch != null)
+            _MenuItem(
+              icon: Icons.search,
+              label: '搜索',
+              onTap: widget.onSearch!,
+            ),
+        ];
+      }
+    }
+
+    if (currentTab == 2) {
+      // Events Tab
+      return [
+        if (widget.onAddEvent != null)
+          _MenuItem(
+            icon: Icons.event,
+            label: '新建日程',
+            onTap: widget.onAddEvent!,
+          ),
+        if (widget.onSearch != null)
+          _MenuItem(
+            icon: Icons.search,
+            label: '搜索',
+            onTap: widget.onSearch!,
+          ),
+      ];
+    }
+
+    if (currentTab == 0) {
+      // Overview tab: broad creation shortcuts
+      return [
+        _MenuItem(
+          icon: Icons.add_task,
+          label: '新建任务',
+          onTap: widget.onAddTask,
+        ),
+        if (widget.onAddEvent != null)
+          _MenuItem(
+            icon: Icons.event,
+            label: '新建日程',
+            onTap: widget.onAddEvent!,
+          ),
+        _MenuItem(
+          icon: Icons.note_add_outlined,
+          label: '新建笔记',
+          onTap: widget.onAddNote,
+        ),
+        if (widget.onCreateVaultNote != null)
+          _MenuItem(
+            icon: Icons.lock_outlined,
+            label: '新建保险库笔记',
+            onTap: widget.onCreateVaultNote!,
+          ),
+        if (widget.onSearch != null)
+          _MenuItem(
+            icon: Icons.search,
+            label: '搜索',
+            onTap: widget.onSearch!,
+          ),
+      ];
+    }
+
+    // Todo tab (1): focused creation shortcuts
+    return [
+      _MenuItem(
+        icon: Icons.add_task,
+        label: '新建任务',
+        onTap: widget.onAddTask,
+      ),
+      if (widget.onAddEvent != null)
+        _MenuItem(
+          icon: Icons.event,
+          label: '新建日程',
+          onTap: widget.onAddEvent!,
+        ),
+      if (widget.onSearch != null)
+        _MenuItem(icon: Icons.search, label: '搜索', onTap: widget.onSearch!),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final menuItems = _getMenuItems(ref).reversed.toList();
+
+    // Ensure we have enough controllers
+    _ensureControllers(menuItems.length);
+
+    // Watch the provider to sync with external close events (like backdrop tap)
+    ref.listen<bool>(fabMenuExpandedProvider, (previous, next) {
+      if (next != _isExpanded) {
+        setState(() {
+          _isExpanded = next;
+        });
+        _animateItems();
+      }
+    });
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Menu Items with staggered animation
+        ...menuItems.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          final controller = _itemControllers[index];
+
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (context, child) {
+              final value = Curves.easeOutBack.transform(controller.value);
+              if (value == 0 && !_isExpanded) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Opacity(
+                  opacity: controller.value,
+                  child: Transform.scale(
+                    scale: value,
+                    alignment: Alignment.bottomRight,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: _FabMenuItem(
+              label: item.label,
+              icon: item.icon,
+              onTap: () {
+                _toggleMenu();
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  item.onTap();
+                });
+              },
+            ),
+          );
+        }),
+        // Main FAB
+        ExpressiveFloatingActionButton(
+          onPressed: _toggleMenu,
+          shape: const CircleBorder(),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) {
+              return RotationTransition(
+                turns: Tween<double>(begin: 0.5, end: 1.0).animate(animation),
+                child: ScaleTransition(scale: animation, child: child),
+              );
+            },
+            child: Icon(
+              _isExpanded ? Icons.close : Icons.add,
+              key: ValueKey<bool>(_isExpanded),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FabMenuItem extends StatelessWidget {
+  const _FabMenuItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 2,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: theme.colorScheme.onSurface),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget to wrap Scaffold body and add FAB menu backdrop
+class FabMenuBackdrop extends ConsumerWidget {
+  final Widget child;
+
+  const FabMenuBackdrop({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFabExpanded = ref.watch(fabMenuExpandedProvider);
+
+    return Stack(
+      children: [
+        child,
+        if (isFabExpanded)
+          Positioned.fill(
+            child: ExpressiveGestureDetector(
+              onTap: () {
+                ref.read(fabMenuExpandedProvider.notifier).update(false);
+              },
+              child: Container(
+                color: Colors.black.withValues(
+                  alpha: 0.5,
+                ), // Semi-transparent black
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Widget to wrap the entire screen (outside Scaffold) for full-screen backdrop
+class FabMenuScreenBackdrop extends ConsumerWidget {
+  const FabMenuScreenBackdrop({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFabExpanded = ref.watch(fabMenuExpandedProvider);
+
+    if (!isFabExpanded) {
+      return const SizedBox.shrink();
+    }
+
+    final useBlur = ref.watch(
+      preferencesStateProvider.select((p) => p.useBlurEffects),
+    );
+
+    return Positioned.fill(
+      child: ExpressiveGestureDetector(
+        onTap: () {
+          ref.read(fabMenuExpandedProvider.notifier).update(false);
+        },
+        child: useBlur
+            ? ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.black.withValues(alpha: 0.35)
+                        : Colors.white.withValues(alpha: 0.25),
+                  ),
+                ),
+              )
+            : Container(color: Colors.black.withValues(alpha: 0.5)),
+      ),
+    );
+  }
+}

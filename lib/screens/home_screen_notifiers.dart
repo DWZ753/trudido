@@ -1,0 +1,158 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/default_tab_service.dart';
+import '../providers/app_providers.dart';
+import '../controllers/notes_controller.dart';
+import '../utils/state_notifiers.dart';
+
+/// Manages the set of selected todo IDs for bulk operations (multi-select mode).
+class SelectedTodoIdsNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => <String>{};
+
+  /// Toggle the selection state of a todo ID.
+  void toggle(String id) {
+    if (state.contains(id)) {
+      state = {...state}..remove(id);
+    } else {
+      state = {...state, id};
+    }
+  }
+
+  /// Clear all selected todo IDs.
+  void clear() => state = <String>{};
+
+  /// Select all given todo IDs.
+  void selectAll(Iterable<String> ids) => state = {...state, ...ids};
+}
+
+/// Manages the set of selected event IDs for bulk operations.
+class SelectedEventIdsNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => <String>{};
+
+  void toggle(String id) {
+    if (state.contains(id)) {
+      state = {...state}..remove(id);
+    } else {
+      state = {...state, id};
+    }
+  }
+
+  void clear() => state = <String>{};
+
+  void selectAll(Iterable<String> ids) => state = {...state, ...ids};
+}
+
+/// Manages the set of selected note IDs for bulk operations.
+class SelectedNoteIdsNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => <String>{};
+
+  void toggle(String id) {
+    if (state.contains(id)) {
+      state = {...state}..remove(id);
+    } else {
+      state = {...state, id};
+    }
+  }
+
+  void clear() => state = <String>{};
+
+  void selectAll(Iterable<String> ids) => state = {...state, ...ids};
+}
+
+/// Notifier for managing current tab state with default tab support.
+class CurrentTabNotifier extends Notifier<int> {
+  @override
+  int build() {
+    _initializeDefaultTab();
+    return 0;
+  }
+
+  /// Initialize with user's preferred default tab.
+  Future<void> _initializeDefaultTab() async {
+    try {
+      final defaultIndex = await DefaultTabService.getDefaultTabIndex();
+      state = defaultIndex;
+    } catch (e) {
+      // Silently fall back to tasks tab (index 0) if loading fails
+      state = 0;
+    }
+  }
+
+  /// Update current tab.
+  void setTab(int index) {
+    final previousTab = state;
+    state = index;
+
+    // Apply default notes folder when switching to Notes tab (tab 2)
+    if (index == 2 && previousTab != 2) {
+      _applyDefaultNotesFolder();
+    }
+  }
+
+  /// Apply the user's default notes folder preference.
+  void _applyDefaultNotesFolder() {
+    final prefs = ref.read(preferencesStateProvider);
+    final defaultFolderId = prefs.defaultNotesFolderId;
+
+    // Only apply if a default is set and different from current selection
+    if (defaultFolderId != null) {
+      ref.read(selectedNoteFolderProvider.notifier).update(defaultFolderId);
+    }
+  }
+
+  /// Reset to default tab.
+  Future<void> resetToDefault() async {
+    final defaultIndex = await DefaultTabService.getDefaultTabIndex();
+    state = defaultIndex;
+  }
+}
+
+// Multi-select providers for tasks tab (todos + events share one mode toggle)
+final multiSelectModeProvider = stateProvider<bool>(false);
+
+final selectedTodoIdsProvider =
+    NotifierProvider<SelectedTodoIdsNotifier, Set<String>>(
+      SelectedTodoIdsNotifier.new,
+    );
+
+final selectedEventIdsProvider =
+    NotifierProvider<SelectedEventIdsNotifier, Set<String>>(
+      SelectedEventIdsNotifier.new,
+    );
+
+// Multi-select providers for notes tab
+final notesMultiSelectModeProvider = stateProvider<bool>(false);
+
+final selectedNoteIdsProvider =
+    NotifierProvider<SelectedNoteIdsNotifier, Set<String>>(
+      SelectedNoteIdsNotifier.new,
+    );
+
+// Provider for tracking search mode state
+final searchModeProvider = stateProvider<bool>(false);
+
+// Search scope filter: empty = show all, otherwise show only selected categories
+final searchScopeProvider = stateProvider<Set<String>>(<String>{});
+
+// Provider for current tab index with default tab initialization
+final currentTabProvider = NotifierProvider<CurrentTabNotifier, int>(
+  CurrentTabNotifier.new,
+);

@@ -1,0 +1,503 @@
+// Trudido - A privacy-focused todo and notes app
+// Copyright (C) 2026 Dominik Müller
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import '../services/theme_service.dart';
+import 'syntax_highlighter.dart';
+
+/// Utility class for creating markdown stylesheets with smart blockquote colors and syntax highlighting
+class SmartMarkdownHelper {
+  static MarkdownStyleSheet createStyleSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Choose background color for blockquotes (you can customize this)
+    final blockquoteBackground = _getBlockquoteBackgroundColor(context);
+
+    return MarkdownStyleSheet.fromTheme(theme).copyWith(
+      // Smart blockquote styling
+      blockquote: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontStyle: FontStyle.italic,
+        fontSize: theme.textTheme.bodyMedium?.fontSize ?? 14,
+        height: 1.4,
+        fontWeight: FontWeight.w400,
+      ),
+
+      blockquoteDecoration: BoxDecoration(
+        color: blockquoteBackground,
+        border: Border(left: BorderSide(color: colorScheme.primary, width: 4)),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+        // Subtle shadow for depth
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.08),
+            offset: const Offset(0, 2),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+
+      blockquotePadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
+
+      // Enhanced styling for other markdown elements
+      h1: TextStyle(
+        color: _getSyntaxColor(context, 'keyword'), // Use syntax colors
+        fontSize: theme.textTheme.headlineSmall?.fontSize ?? 20,
+        fontWeight: FontWeight.bold,
+        height: 1.2,
+      ),
+
+      h2: TextStyle(
+        color: _getSyntaxColor(context, 'function'),
+        fontSize: theme.textTheme.titleLarge?.fontSize ?? 18,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+      ),
+
+      h3: TextStyle(
+        color: _getSyntaxColor(context, 'variable'),
+        fontSize: theme.textTheme.titleMedium?.fontSize ?? 16,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+      ),
+
+      p: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: theme.textTheme.bodyMedium?.fontSize ?? 14,
+        height: 1.5,
+      ),
+
+      code: AppTheme.getCodeTextStyle(context).copyWith(
+        backgroundColor: _getCodeBackgroundColor(context),
+        color: _getCodeTextColor(context),
+      ),
+
+      // Style for code blocks
+      codeblockDecoration: BoxDecoration(
+        color: _getCodeBlockBackgroundColor(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        // VS Code-style shadow
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.08),
+            offset: const Offset(0, 2),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+
+      codeblockPadding: const EdgeInsets.all(20),
+
+      // Links
+      a: TextStyle(color: colorScheme.primary),
+
+      // Lists
+      listBullet: TextStyle(
+        color: _getSyntaxColor(context, 'keyword'),
+        fontWeight: FontWeight.bold,
+      ),
+
+      // Tables — match the styled table embed in the editor
+      tableColumnWidth: const IntrinsicColumnWidth(),
+      tableBorder: TableBorder.all(
+        color: colorScheme.outlineVariant,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      tableHead: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onSurface,
+        fontSize: theme.textTheme.bodyMedium?.fontSize ?? 14,
+      ),
+      tableBody: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: theme.textTheme.bodyMedium?.fontSize ?? 14,
+      ),
+      tableCellsPadding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      tableCellsDecoration: BoxDecoration(color: colorScheme.surface),
+      tableHeadAlign: TextAlign.start,
+    );
+  }
+
+  /// Create a minimal stylesheet optimized for preview cards (like in your notes list)
+  ///
+  /// This version is more compact and suitable for limited space contexts
+  static MarkdownStyleSheet createCompactStyleSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final blockquoteBackground = _getBlockquoteBackgroundColor(context);
+
+    return MarkdownStyleSheet.fromTheme(theme).copyWith(
+      // Compact blockquote styling
+      blockquote: TextStyle(
+        color: colorScheme.onSurfaceVariant,
+        fontStyle: FontStyle.italic,
+        fontSize: (theme.textTheme.bodySmall?.fontSize ?? 12) + 1,
+        height: 1.3,
+      ),
+
+      blockquoteDecoration: BoxDecoration(
+        color: blockquoteBackground,
+        border: Border(left: BorderSide(color: colorScheme.primary, width: 3)),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(6),
+          bottomRight: Radius.circular(6),
+        ),
+      ),
+
+      blockquotePadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+
+      // Compact headers
+      h1: TextStyle(
+        color: _getSyntaxColor(context, 'keyword'),
+        fontSize: theme.textTheme.titleMedium?.fontSize ?? 16,
+        fontWeight: FontWeight.bold,
+        height: 1.2,
+      ),
+
+      h2: TextStyle(
+        color: _getSyntaxColor(context, 'function'),
+        fontSize: theme.textTheme.titleSmall?.fontSize ?? 14,
+        fontWeight: FontWeight.w600,
+        height: 1.2,
+      ),
+
+      p: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: theme.textTheme.bodySmall?.fontSize ?? 12,
+        height: 1.4,
+      ),
+
+      code: AppTheme.getCodeTextStyle(context).copyWith(
+        backgroundColor: _getCodeBackgroundColor(context),
+        color: _getCodeTextColor(context),
+        fontSize: theme.textTheme.bodySmall?.fontSize ?? 12,
+      ),
+
+      // Tables — compact version of the styled table embed
+      tableColumnWidth: const IntrinsicColumnWidth(),
+      tableBorder: TableBorder.all(
+        color: colorScheme.outlineVariant,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      tableHead: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onSurface,
+        fontSize: theme.textTheme.bodySmall?.fontSize ?? 12,
+      ),
+      tableBody: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: theme.textTheme.bodySmall?.fontSize ?? 12,
+      ),
+      tableCellsPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      tableCellsDecoration: BoxDecoration(color: colorScheme.surface),
+      tableHeadAlign: TextAlign.start,
+    );
+  }
+
+  /// Get the background color for blockquotes based on current theme
+  ///
+  /// Uses surface variants for better readability and accessibility
+  static Color _getBlockquoteBackgroundColor(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+
+    // Use surface variants for better readability
+    if (brightness == Brightness.light) {
+      // Light mode: use a slightly darker surface for better contrast
+      return colorScheme.surfaceContainerHigh;
+    } else {
+      // Dark mode: use a slightly lighter surface for better contrast
+      return colorScheme.surfaceContainerHighest;
+    }
+  }
+
+  /// Get background color for inline code — adapts to any note background color.
+  static Color _getCodeBackgroundColor(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1);
+  }
+
+  /// Get text color for inline code.
+  static Color _getCodeTextColor(BuildContext context) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+
+  /// Get VS Code-style background color for code blocks
+  static Color _getCodeBlockBackgroundColor(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+
+    if (brightness == Brightness.light) {
+      // Light theme: slightly darker than surface for code blocks
+      return const Color(0xFFF8F9FA); // GitHub code block background
+    } else {
+      // Dark theme: VS Code editor background
+      return const Color(0xFF1E1E1E); // VS Code dark editor background
+    }
+  }
+
+  /// Returns the color used for mention/link text in the preview mode.
+  static Color getLinkColor(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+
+  /// Get VS Code-style syntax highlighting colors
+  static Color _getSyntaxColor(BuildContext context, String type) {
+    final brightness = Theme.of(context).brightness;
+
+    if (brightness == Brightness.light) {
+      switch (type) {
+        case 'keyword': // For H1 headers
+          return const Color(0xFFD73A49); // GitHub red
+        case 'function': // For H2 headers
+          return const Color(0xFF6F42C1); // GitHub purple
+        case 'variable': // For H3 headers
+          return const Color(0xFF005CC5); // GitHub blue
+        case 'string':
+          return const Color(0xFF032F62); // GitHub dark blue
+        case 'comment':
+          return const Color(0xFF6A737D); // GitHub grey
+        default:
+          return const Color(0xFF24292E); // GitHub black
+      }
+    } else {
+      switch (type) {
+        case 'keyword': // For H1 headers
+          return const Color(0xFFC586C0); // VS Code magenta
+        case 'function': // For H2 headers
+          return const Color(0xFFDCDCAA); // VS Code yellow
+        case 'variable': // For H3 headers
+          return const Color(0xFF9CDCFE); // VS Code light blue
+        case 'string':
+          return const Color(0xFFCE9178); // VS Code orange
+        case 'comment':
+          return const Color(0xFF6A9955); // VS Code green
+        default:
+          return const Color(0xFFD4D4D4); // VS Code light grey
+      }
+    }
+  }
+
+  /// Calculate the perceived brightness (luminosity) of a color
+  ///
+  /// Uses the standard luminosity formula weighted for human perception:
+  /// - Green: 58.7% weight (appears brightest)
+  /// - Red: 29.9% weight (medium brightness)
+  /// - Blue: 11.4% weight (appears darkest)
+  static double _calculateLuminosity(Color color) {
+    final r = color.r;
+    final g = color.g;
+    final b = color.b;
+
+    return (0.299 * r) + (0.587 * g) + (0.114 * b);
+  }
+
+  /// Get contrasting text color for optimal readability
+  ///
+  /// Uses theme-appropriate colors for better accessibility
+  static Color _getContrastingTextColor(Color backgroundColor) {
+    final luminosity = _calculateLuminosity(backgroundColor);
+
+    // For very light backgrounds, use a strong dark color
+    // For darker backgrounds, use a lighter color
+    if (luminosity > 0.7) {
+      return const Color(0xFF1C1B1F); // Material 3 neutral variant 10
+    } else if (luminosity > 0.3) {
+      return const Color(0xFF49454F); // Material 3 neutral variant 30
+    } else {
+      return const Color(0xFFE6E0E9); // Material 3 neutral variant 90
+    }
+  }
+
+  /// Check if a color combination meets accessibility standards
+  ///
+  /// Returns contrast ratio - should be at least 4.5:1 for WCAG AA compliance
+  /// and 7:1 for WCAG AAA compliance
+  static double calculateContrastRatio(Color background, Color text) {
+    final bgLuminosity = _calculateLuminosity(background);
+    final textLuminosity = _calculateLuminosity(text);
+
+    final lighter = bgLuminosity > textLuminosity
+        ? bgLuminosity
+        : textLuminosity;
+    final darker = bgLuminosity > textLuminosity
+        ? textLuminosity
+        : bgLuminosity;
+
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  /// Validate accessibility for current theme
+  ///
+  /// Returns true if all color combinations meet WCAG AA standards
+  static bool validateThemeAccessibility(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Test primary text on surface
+    final primaryTextRatio = calculateContrastRatio(
+      colorScheme.surface,
+      colorScheme.onSurface,
+    );
+
+    // Test secondary text on surface
+    final secondaryTextRatio = calculateContrastRatio(
+      colorScheme.surface,
+      colorScheme.onSurfaceVariant,
+    );
+
+    // Test blockquote accessibility
+    final blockquoteBackground = _getBlockquoteBackgroundColor(context);
+    final blockquoteText = _getContrastingTextColor(blockquoteBackground);
+    final blockquoteRatio = calculateContrastRatio(
+      blockquoteBackground,
+      blockquoteText,
+    );
+
+    return primaryTextRatio >= 4.5 &&
+        secondaryTextRatio >= 3.0 && // More lenient for secondary text
+        blockquoteRatio >= 4.5;
+  }
+
+  /// Create a custom code block widget with better styling
+  ///
+  /// This can be used with MarkdownBody's builders parameter for enhanced code blocks:
+  /// ```dart
+  /// MarkdownBody(
+  ///   data: note.content,
+  ///   styleSheet: SmartMarkdownHelper.createStyleSheet(context),
+  ///   builders: {
+  ///     'code': SmartMarkdownHelper.createCodeBlockBuilder(context),
+  ///   },
+  /// )
+  /// ```
+  static Widget Function(String text, String? language) createCodeBlockBuilder(
+    BuildContext context,
+  ) {
+    return (String text, String? language) {
+      final brightness = Theme.of(context).brightness;
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _getCodeBlockBackgroundColor(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(
+              context,
+            ).colorScheme.outline.withValues(alpha: 0.15),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Language badge
+            if (language != null && language.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getSyntaxColor(
+                    context,
+                    'comment',
+                  ).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  language.toUpperCase(),
+                  style: AppTheme.getCodeTextStyle(context).copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: _getSyntaxColor(context, 'comment'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            // Syntax-highlighted code content
+            RichText(
+              text: CodeSyntaxHighlighter.highlightToSpans(
+                text,
+                language,
+                brightness,
+              ),
+            ),
+          ],
+        ),
+      );
+    };
+  }
+
+  /// Get accessibility information for debugging
+  static AccessibilityInfo getAccessibilityInfo(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final blockquoteBackground = _getBlockquoteBackgroundColor(context);
+    final textColor = colorScheme.onSurfaceVariant;
+    final contrastRatio = calculateContrastRatio(
+      blockquoteBackground,
+      textColor,
+    );
+
+    return AccessibilityInfo(
+      backgroundColor: blockquoteBackground,
+      textColor: textColor,
+      contrastRatio: contrastRatio,
+      meetsWCAGAA: contrastRatio >= 4.5,
+      meetsWCAGAAA: contrastRatio >= 7.0,
+    );
+  }
+}
+
+/// Information about accessibility compliance for colors
+class AccessibilityInfo {
+  final Color backgroundColor;
+  final Color textColor;
+  final double contrastRatio;
+  final bool meetsWCAGAA;
+  final bool meetsWCAGAAA;
+
+  const AccessibilityInfo({
+    required this.backgroundColor,
+    required this.textColor,
+    required this.contrastRatio,
+    required this.meetsWCAGAA,
+    required this.meetsWCAGAAA,
+  });
+
+  @override
+  String toString() {
+    return 'AccessibilityInfo('
+        'contrastRatio: ${contrastRatio.toStringAsFixed(2)}, '
+        'WCAG AA: $meetsWCAGAA, '
+        'WCAG AAA: $meetsWCAGAAA)';
+  }
+}
