@@ -40,18 +40,31 @@ android {
         }
     }
 
+    // Load signing credentials from local key.properties (gitignored).
+    // If you clone this repo, create android/key.properties:
+    //   storePassword=yourpassword
+    //   keyPassword=yourpassword
+    //   keyAlias=youralias
+    //   storeFile=your-keystore.jks
+    val keystoreProps = mutableMapOf<String, String>()
+    val keystorePropsFile = rootProject.file("../key.properties")
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.readLines().forEach { line ->
+            val parts = line.split("=", limit = 2)
+            if (parts.size == 2) {
+                keystoreProps[parts[0].trim()] = parts[1].trim()
+            }
+        }
+    }
+
     signingConfigs {
         create("release") {
-            val home = System.getenv("HOME") ?: System.getenv("USERPROFILE") ?: ""
-            val keystorePath = "$home/Documents/keystores/trudido-release-key.jks"
-            val keystoreFile = file(keystorePath)
-            
-            // Only configure signing if keystore exists and env vars are set
-            if (keystoreFile.exists() && System.getenv("KEYSTORE_PASSWORD") != null) {
-                storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+            val storeFileProp = keystoreProps["storeFile"]
+            if (storeFileProp != null) {
+                storeFile = rootProject.file(storeFileProp)
+                storePassword = keystoreProps["storePassword"]
+                keyAlias = keystoreProps["keyAlias"]
+                keyPassword = keystoreProps["keyPassword"]
             }
         }
     }
