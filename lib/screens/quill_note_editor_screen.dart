@@ -3643,7 +3643,7 @@ class _QuillNoteEditorScreenState extends ConsumerState<QuillNoteEditorScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Drag this handle to detach the toolbar',
+                      '拖动此手柄以分离工具栏',
                       style: TextStyle(
                         color: cs.onInverseSurface,
                         fontSize: 13,

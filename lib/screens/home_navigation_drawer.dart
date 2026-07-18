@@ -686,7 +686,7 @@ class _NoteFoldersList extends ConsumerWidget {
               visualDensity: VisualDensity.compact,
               leading: Icon(Icons.add, size: 20, color: colorScheme.primary),
               title: Text(
-                'Create Folder',
+                '创建文件夹',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.w500,

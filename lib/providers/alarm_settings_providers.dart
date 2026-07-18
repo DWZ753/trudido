@@ -17,10 +17,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/alarm_settings_watcher.dart';
 
+/// Refresh trigger counter that ticks when alarm settings change.
+/// Widgets that read directly from AlarmSettingsWatcher should watch this
+/// to ensure they rebuild when the underlying values are refreshed.
+final alarmSettingsRefreshTrigger =
+    NotifierProvider<_RefreshTriggerNotifier, int>(
+      _RefreshTriggerNotifier.new,
+    );
+
+class _RefreshTriggerNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+}
+
 class _AlarmSettingsWatcherNotifier extends Notifier<AlarmSettingsWatcher> {
   @override
   AlarmSettingsWatcher build() {
     final watcher = AlarmSettingsWatcher();
+    // Forward ChangeNotifier events to Riverpod by ticking a version counter
+    watcher.addListener(() {
+      ref.read(alarmSettingsRefreshTrigger.notifier).state++;
+    });
     watcher.start();
     ref.onDispose(() => watcher.disposeWatcher());
     return watcher;
@@ -34,9 +51,12 @@ final alarmSettingsWatcherProvider =
     );
 
 /// Derived providers for convenience.
-final canExactAlarmsProvider = Provider<bool>(
-  (ref) => ref.watch(alarmSettingsWatcherProvider).canExact,
-);
-final ignoringBatteryOptimizationsProvider = Provider<bool>(
-  (ref) => ref.watch(alarmSettingsWatcherProvider).ignoringBattery,
-);
+/// Watch the refresh trigger so these rebuild when the watcher updates.
+final canExactAlarmsProvider = Provider<bool>((ref) {
+  ref.watch(alarmSettingsRefreshTrigger);
+  return ref.watch(alarmSettingsWatcherProvider).canExact;
+});
+final ignoringBatteryOptimizationsProvider = Provider<bool>((ref) {
+  ref.watch(alarmSettingsRefreshTrigger);
+  return ref.watch(alarmSettingsWatcherProvider).ignoringBattery;
+});

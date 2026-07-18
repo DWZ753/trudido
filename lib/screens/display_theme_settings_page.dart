@@ -266,6 +266,7 @@ class DisplayThemeSettingsPage extends ConsumerWidget {
 
   String _getGreetingLanguageName(int index) {
     const greetings = [
+      '中文（简体）',
       'English',
       'Español',
       'Français',
@@ -1181,6 +1182,7 @@ class _GreetingLanguageSheet extends ConsumerWidget {
     final controller = ref.read(preferencesControllerProvider);
 
     final languages = [
+      '中文（简体）',
       'English',
       'Español',
       'Français',

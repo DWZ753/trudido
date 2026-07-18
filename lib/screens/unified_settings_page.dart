@@ -124,6 +124,9 @@ class _UnifiedSettingsPageState extends ConsumerState<UnifiedSettingsPage>
   @override
   Widget build(BuildContext context) {
     final watcher = ref.watch(alarmSettingsWatcherProvider);
+    // Watch the refresh trigger so UI rebuilds when alarm/battery
+    // permissions change after the user returns from system settings.
+    ref.watch(alarmSettingsRefreshTrigger);
     final spacing = ref.watch(adaptiveSpacingProvider);
     final perms = PermissionsChannel.instance;
     final notifEnabledAsync = ref.watch(_notificationsStatusProvider);

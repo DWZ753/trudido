@@ -465,8 +465,8 @@ Type **/** to open the insert menu:
 
     // Create the default Vault folder
     final vaultFolder = NoteFolder(
-      name: 'Vault',
-      description: 'Secure encrypted folder for private notes',
+      name: '保险库',
+      description: '加密存储私密笔记的安全文件夹',
       isVault: true,
       hasPassword: false, // No password set initially
       useBiometric: true,

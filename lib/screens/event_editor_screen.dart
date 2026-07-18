@@ -988,6 +988,7 @@ class _EventEditorScreenState extends ConsumerState<EventEditorScreen> {
 
     final picked = await showDatePicker(
       context: context,
+      locale: const Locale('zh'),
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: now.add(const Duration(days: 1825)),
       initialDate: _startDate ?? now,
@@ -1017,6 +1018,7 @@ class _EventEditorScreenState extends ConsumerState<EventEditorScreen> {
 
     final picked = await showDatePicker(
       context: context,
+      locale: const Locale('zh'),
       firstDate: _startDate ?? now,
       lastDate: (_startDate ?? now).add(const Duration(days: 1825)),
       initialDate: _endDate ?? _startDate ?? now,
@@ -1180,6 +1182,7 @@ class _EventEditorScreenState extends ConsumerState<EventEditorScreen> {
                                 .firstDayOfWeek;
                             final picked = await showDatePicker(
                               context: context,
+                              locale: const Locale('zh'),
                               initialDate:
                                   _repeatEndDate ??
                                   now.add(const Duration(days: 30)),

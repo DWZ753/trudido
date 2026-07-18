@@ -283,6 +283,7 @@ class GreetingHeader extends ConsumerStatefulWidget {
 
 class _GreetingHeaderState extends ConsumerState<GreetingHeader> {
   final List<Map<String, String>> _greetings = [
+    {'text': '你好', 'lang': '中文（简体）'},
     {'text': 'Hello', 'lang': 'English'},
     {'text': 'Hola', 'lang': 'Español'},
     {'text': 'Bonjour', 'lang': 'Français'},

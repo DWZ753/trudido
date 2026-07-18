@@ -627,6 +627,7 @@ class _TaskEditorDialogState extends ConsumerState<TaskEditorDialog> {
 
     final picked = await showDateRangePicker(
       context: context,
+      locale: const Locale('zh'),
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
       initialDateRange: _startDate != null && _dueDate != null

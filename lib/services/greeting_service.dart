@@ -18,6 +18,21 @@
 class GreetingService {
   // Multilingual greetings for different times of day
   static const List<Map<String, dynamic>> _greetings = [
+    // 中文（简体）
+    {
+      'morning': '早上好',
+      'afternoon': '下午好',
+      'evening': '晚上好',
+      'night': '夜深了',
+      'morningSubtitle': '准备好处理早上的任务了吗？',
+      'afternoonSubtitle': '今天过得怎么样？',
+      'eveningSubtitle': '是时候结束这一天了！',
+      'nightSubtitle': '在想什么呢？',
+      'notesMorningSubtitle': '记录你的早晨灵感',
+      'notesAfternoonSubtitle': '准备好记录想法了吗？',
+      'notesEveningSubtitle': '晚间思绪？',
+      'notesNightSubtitle': '在想什么呢？',
+    },
     // English
     {
       'morning': 'Good morning',

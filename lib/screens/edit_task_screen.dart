@@ -184,6 +184,7 @@ class _EditTaskScreenState extends ConsumerState<EditTaskScreen> {
     final initialDate = _selectedDueDate ?? now;
     final DateTime? pickedDate = await showDatePicker(
       context: localContext,
+      locale: const Locale('zh'),
       initialDate: initialDate,
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: now.add(const Duration(days: 365 * 2)),
@@ -242,6 +243,7 @@ class _EditTaskScreenState extends ConsumerState<EditTaskScreen> {
     final initialEnd = _selectedDueDate ?? initialStart;
     final range = await showDateRangePicker(
       context: context,
+      locale: const Locale('zh'),
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: now.add(const Duration(days: 365 * 2)),
       initialDateRange: DateTimeRange(

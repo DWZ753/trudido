@@ -399,12 +399,12 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: const Text('Delete Task'),
-                      content: Text('Delete "${task.text}"?'),
+                      title: const Text('删除任务'),
+                      content: Text('删除"${task.text}"？'),
                       actions: [
                         ExpressiveTextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
+                          child: const Text('取消'),
                         ),
                         ExpressiveTextButton(
                           onPressed: () {
@@ -413,7 +413,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> {
                                 .delete(task.id);
                             Navigator.pop(context);
                           },
-                          child: const Text('Delete'),
+                          child: const Text('删除'),
                         ),
                       ],
                     ),

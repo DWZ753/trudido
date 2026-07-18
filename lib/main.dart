@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/foundation.dart'
     show
         defaultTargetPlatform,
@@ -59,6 +60,11 @@ final widgetTaskCreationDateProvider = stateProvider<DateTime?>(null);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Chinese date formatting symbols for the intl package.
+  // Without this, DateFormat falls back to English month/day names
+  // even when Intl.defaultLocale is set to 'zh_CN'.
+  await initializeDateFormatting('zh_CN');
 
   // Set Chinese locale for date formatting throughout the app
   Intl.defaultLocale = 'zh_CN';
@@ -445,9 +451,12 @@ class _TodoAppState extends ConsumerState<TodoApp> with WidgetsBindingObserver {
                 FlutterQuillLocalizations.delegate,
               ],
               supportedLocales: const [Locale('en'), Locale('zh')],
+              // Force Chinese locale so Material widgets (date pickers,
+              // time pickers, etc.) always display Chinese text regardless
+              // of the device's system language setting.
+              locale: const Locale('zh'),
               localeResolutionCallback: (locale, supportedLocales) {
-                // App is fully Sinicized; always use Chinese locale
-                // so Material widgets (date pickers, etc.) show Chinese text
+                // Also force via callback for compatibility with older Flutter
                 return const Locale('zh');
               },
               // Ensure MaterialApp uses theme background color to prevent visual gaps

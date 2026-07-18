@@ -357,7 +357,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
           _buildQuickActionChip(
             icon: Icons.date_range_outlined,
             label: _isMultiDay && _startDate != null
-                ? '结束：${DateFormatters.formatSmart(_startDate!, now: ref.read(clockProvider).now(), includeTime: false)}'
+                ? '开始：${DateFormatters.formatSmart(_startDate!, now: ref.read(clockProvider).now(), includeTime: false)}'
                 : '设为多日',
             isSelected: _isMultiDay,
             onTap: _toggleMultiDay,
@@ -948,6 +948,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
                                 .firstDayOfWeek;
                             final picked = await showDatePicker(
                               context: context,
+                              locale: const Locale('zh'),
                               initialDate:
                                   _repeatEndDate ??
                                   now.add(const Duration(days: 30)),
@@ -1274,6 +1275,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
 
     final picked = await showDatePicker(
       context: context,
+      locale: const Locale('zh'),
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
       initialDate: _dueDate ?? now,
@@ -1310,6 +1312,7 @@ class _TaskEditorScreenState extends ConsumerState<TaskEditorScreen> {
 
       final picked = await showDatePicker(
         context: context,
+        locale: const Locale('zh'),
         firstDate: _dueDate ?? now,
         lastDate: (_dueDate ?? now).add(const Duration(days: 365)),
         initialDate: _dueDate ?? now,

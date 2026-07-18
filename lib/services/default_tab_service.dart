@@ -107,15 +107,15 @@ class DefaultTabService {
   static String getTabDisplayName(String tabId) {
     switch (tabId) {
       case 'overview':
-        return 'Overview';
+        return '概览';
       case 'todo':
-        return 'Todo';
+        return '任务';
       case 'events':
-        return 'Events';
+        return '事件';
       case 'notes':
-        return 'Notes';
+        return '笔记';
       default:
-        return 'Unknown';
+        return '未知';
     }
   }
 

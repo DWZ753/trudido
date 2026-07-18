@@ -62,6 +62,10 @@ android {
             val releaseSigningConfig = signingConfigs.getByName("release")
             if (releaseSigningConfig.storeFile?.exists() == true) {
                 signingConfig = releaseSigningConfig
+            } else {
+                // Fall back to debug signing so release builds work without a
+                // production keystore (useful for testing optimized builds).
+                signingConfig = signingConfigs.getByName("debug")
             }
             // Enable code shrinking, obfuscation, and optimization (standard for production)
             isMinifyEnabled = true
