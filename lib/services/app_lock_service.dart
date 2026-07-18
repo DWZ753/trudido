@@ -140,7 +140,7 @@ class AppLockService {
 
     try {
       final success = await BiometricAuthService.authenticate(
-        reason: 'Unlock Trudido',
+        reason: '解锁 Trudido',
         biometricOnly: false,
       );
 

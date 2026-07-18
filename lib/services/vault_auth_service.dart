@@ -59,7 +59,7 @@ class VaultAuthService {
     if (biometricAvailable && attempts < maxBiometricAttempts) {
       debugPrint('[VaultAuth] Attempting biometric authentication...');
       final biometricSuccess = await BiometricAuthService.authenticate(
-        reason: 'Authenticate to access $folderName',
+        reason: '验证身份以访问「$folderName」',
         biometricOnly: true,
       );
 
