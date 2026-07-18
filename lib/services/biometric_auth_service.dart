@@ -17,6 +17,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
 
 class BiometricAuthService {
   static final LocalAuthentication _auth = LocalAuthentication();
@@ -86,7 +87,13 @@ class BiometricAuthService {
       }
       final result = await _auth.authenticate(
         localizedReason: reason,
-        authMessages: const [],
+        authMessages: const [
+          AndroidAuthMessages(
+            signInTitle: '需要验证身份',
+            cancelButton: '取消',
+            signInHint: '请验证指纹',
+          ),
+        ],
       );
 
       if (kDebugMode) {
